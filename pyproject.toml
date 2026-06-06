@@ -1,0 +1,31 @@
+[project]
+name = "velicor"
+version = "0.1.0"
+description = "High-performance log ingestion and search layer"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "pydantic>=2.0.0",
+    "pydantic-settings",
+    "zstandard",
+    "aiofiles",
+    "orjson",
+    "python-multipart",
+    "requests",
+    "asyncpg",
+    "python-dotenv",
+    "motor",
+    "python-jose[cryptography]",
+    "passlib[bcrypt]",
+    "bcrypt",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
