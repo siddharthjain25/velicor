@@ -94,7 +94,12 @@ async def ingest_logs(
             
         log["service_name"] = verified_service_name
         valid_logs.append(log)
-        asyncio.create_task(manager.broadcast(log, verified_service_name))
+        
+        # Broadcast to Live UI
+        if settings.SERVERLESS_MODE:
+            await manager.broadcast(log, verified_service_name)
+        else:
+            asyncio.create_task(manager.broadcast(log, verified_service_name))
 
     if not valid_logs:
         return {"status": "ignored", "processed": 0}
@@ -103,7 +108,10 @@ async def ingest_logs(
     if "webhooks" in service and service["webhooks"]:
         from app.models.service import WebhookConfig
         webhooks = [WebhookConfig(**w) for w in service["webhooks"]]
-        asyncio.create_task(trigger_webhooks(webhooks, valid_logs))
+        if settings.SERVERLESS_MODE:
+            await trigger_webhooks(webhooks, valid_logs)
+        else:
+            asyncio.create_task(trigger_webhooks(webhooks, valid_logs))
 
     if settings.SERVERLESS_MODE:
         # Synchronous flush for Vercel

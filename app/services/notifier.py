@@ -30,8 +30,11 @@ async def trigger_webhooks(webhooks: List[WebhookConfig], logs: List[Dict[str, A
                 matching_logs.append(log)
 
         if matching_logs:
-            # Run webhook delivery in a separate thread to not block the event loop
-            asyncio.create_task(send_webhook_request(webhook.url, matching_logs))
+            # Run webhook delivery
+            if settings.SERVERLESS_MODE:
+                await send_webhook_request(webhook.url, matching_logs)
+            else:
+                asyncio.create_task(send_webhook_request(webhook.url, matching_logs))
 
 async def send_webhook_request(url: str, logs: List[Dict[str, Any]]):
     try:
