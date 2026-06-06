@@ -64,9 +64,12 @@ async def lifespan(app: FastAPI):
         try: await retention_task
         except asyncio.CancelledError: pass
         
-    await pg_manager.disconnect()
-    await mongo_manager.disconnect()
-    logger.info("Application stopped")
+    if not settings.is_serverless:
+        await pg_manager.disconnect()
+        await mongo_manager.disconnect()
+        logger.info("Application stopped")
+    else:
+        logger.info("Serverless: Skipping disconnect to allow connection reuse")
 
 app = FastAPI(title="Log Ingestion & Search Layer", lifespan=lifespan)
 app.add_middleware(
