@@ -31,7 +31,7 @@ async def trigger_webhooks(webhooks: List[WebhookConfig], logs: List[Dict[str, A
 
         if matching_logs:
             # Run webhook delivery
-            if settings.SERVERLESS_MODE:
+            if settings.is_serverless:
                 await send_webhook_request(webhook.url, matching_logs)
             else:
                 asyncio.create_task(send_webhook_request(webhook.url, matching_logs))

@@ -99,7 +99,7 @@ async def ingest_logs(
         valid_logs.append(log)
         
         # Broadcast to Live UI
-        if settings.SERVERLESS_MODE:
+        if settings.is_serverless:
             await manager.broadcast(log, verified_service_name)
         else:
             asyncio.create_task(manager.broadcast(log, verified_service_name))
@@ -111,12 +111,12 @@ async def ingest_logs(
     if "webhooks" in service and service["webhooks"]:
         from app.models.service import WebhookConfig
         webhooks = [WebhookConfig(**w) for w in service["webhooks"]]
-        if settings.SERVERLESS_MODE:
+        if settings.is_serverless:
             await trigger_webhooks(webhooks, valid_logs)
         else:
             asyncio.create_task(trigger_webhooks(webhooks, valid_logs))
 
-    if settings.SERVERLESS_MODE:
+    if settings.is_serverless:
         # Synchronous flush for Vercel
         from app.db.postgres import pg_manager
         try:
