@@ -59,6 +59,9 @@ class PostgresManager:
                 CREATE INDEX IF NOT EXISTS idx_{table_name}_status ON {table_name} (status_code);
                 CREATE INDEX IF NOT EXISTS idx_{table_name}_metadata ON {table_name} USING GIN (metadata);
                 CREATE INDEX IF NOT EXISTS idx_{table_name}_message_fts ON {table_name} USING GIN (to_tsvector('english', message));
+                
+                -- Enable RLS to satisfy Supabase security checks
+                ALTER TABLE {table_name} ENABLE ROW LEVEL SECURITY;
             """)
         self.known_tables.add(table_name)
 
