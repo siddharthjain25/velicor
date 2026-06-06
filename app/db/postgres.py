@@ -18,18 +18,28 @@ class PostgresManager:
             return
 
         if not self.pool:
-            # Use property for auto-detection
-            is_sl = settings.is_serverless
-            pool_size = 2 if is_sl else 10
-            
-            self.pool = await asyncpg.create_pool(
-                settings.POSTGRES_URL,
-                min_size=1,
-                max_size=pool_size,
-                statement_cache_size=0,
-                ssl="require"
-            )
-            logger.info(f"Connected to Postgres (pool_size={pool_size}, mode={'Serverless' if is_sl else 'Persistent'})")
+            try:
+                # Use property for auto-detection
+                is_sl = settings.is_serverless
+                # In serverless, many instances might be 'warm'
+                # Force 1 connection per instance to prevent exhausting DB limits
+                pool_size = 1 if is_sl else 10
+                
+                self.pool = await asyncpg.create_pool(
+                    settings.POSTGRES_URL,
+                    min_size=0 if is_sl else 1,
+                    max_size=pool_size,
+                    # Supavisor/PgBouncer optimizations
+                    max_queries=500,
+                    max_inactive_connection_lifetime=60.0,
+                    statement_cache_size=0,
+                    ssl="require"
+                )
+                logger.info(f"Connected to Postgres (pool_size={pool_size}, mode={'Serverless' if is_sl else 'Persistent'})")
+            except Exception as e:
+                logger.error(f"Failed to create Postgres pool: {e}")
+                self.pool = None
+                raise e
 
     async def disconnect(self):
         if self.pool:
