@@ -22,6 +22,9 @@ async def get_service_from_key(x_api_key: str) -> Optional[dict]:
         if now < expiry:
             return service
     
+    if not mongo_manager.client:
+        await mongo_manager.connect()
+        
     service = await mongo_manager.db.services.find_one({"secret_key": x_api_key})
     if service:
         service["_id"] = str(service["_id"])

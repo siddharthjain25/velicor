@@ -17,6 +17,12 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7 # 1 week
     
     SERVERLESS_MODE: bool = False
+    
+    @property
+    def is_serverless(self) -> bool:
+        import os
+        return self.SERVERLESS_MODE or os.environ.get("VERCEL") == "1"
+
     ALLOW_ORIGINS: list[str] = ["*"]
     CRON_SECRET: Optional[str] = None
 

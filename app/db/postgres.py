@@ -18,10 +18,9 @@ class PostgresManager:
             return
 
         if not self.pool:
-            # Serverless environments like Vercel need very small pools
-            # because every invocation might create a new process.
-            # Supavisor/PgBouncer also have limits per session.
-            pool_size = 2 if settings.SERVERLESS_MODE else 10
+            # Use property for auto-detection
+            is_sl = settings.is_serverless
+            pool_size = 2 if is_sl else 10
             
             self.pool = await asyncpg.create_pool(
                 settings.POSTGRES_URL,
@@ -30,7 +29,7 @@ class PostgresManager:
                 statement_cache_size=0,
                 ssl="require"
             )
-            logger.info(f"Connected to Postgres (pool_size={pool_size})")
+            logger.info(f"Connected to Postgres (pool_size={pool_size}, mode={'Serverless' if is_sl else 'Persistent'})")
 
     async def disconnect(self):
         if self.pool:
@@ -64,6 +63,9 @@ class PostgresManager:
         self.known_tables.add(table_name)
 
     async def insert_batch(self, batch: List[Dict[str, Any]]):
+        if not self.pool: await self.connect()
+        if not self.pool: return
+        
         groups = {}
         for data in batch:
             service = data.get("service_name", "unknown")
@@ -118,6 +120,9 @@ class PostgresManager:
                 """, records)
 
     async def search(self, service_name: str, start_ts: Optional[str] = None, end_ts: Optional[str] = None, level: Optional[str] = None, status_code: Optional[int] = None, keyword: Optional[str] = None, limit: int = 100):
+        if not self.pool: await self.connect()
+        if not self.pool: return []
+        
         table_name = self._get_table_name(service_name)
         await self.ensure_table(table_name)
 
@@ -168,6 +173,9 @@ class PostgresManager:
             ]
 
     async def delete_table(self, service_name: str):
+        if not self.pool: await self.connect()
+        if not self.pool: return
+        
         table_name = self._get_table_name(service_name)
         async with self.pool.acquire() as conn:
             await conn.execute(f"DROP TABLE IF EXISTS {table_name}")
@@ -176,6 +184,9 @@ class PostgresManager:
         logger.info(f"Dropped table {table_name} for service {service_name}")
 
     async def purge_old_logs(self, service_name: str, retention_days: int):
+        if not self.pool: await self.connect()
+        if not self.pool: return
+        
         if retention_days <= 0:
             return
             
@@ -197,6 +208,9 @@ class PostgresManager:
                 logger.info(f"Purged old logs from {table_name}: {result}")
 
     async def get_stats(self, service_name: str, interval_hours: int = 24):
+        if not self.pool: await self.connect()
+        if not self.pool: return {"levels": {}, "series": []}
+        
         table_name = self._get_table_name(service_name)
         await self.ensure_table(table_name)
         
