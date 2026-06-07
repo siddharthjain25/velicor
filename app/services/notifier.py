@@ -4,6 +4,7 @@ import requests
 import orjson
 from typing import List, Dict, Any
 from app.models.service import WebhookConfig
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 

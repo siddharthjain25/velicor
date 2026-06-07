@@ -9,6 +9,7 @@ from app.services.worker import pipeline_worker, flush_remaining
 from app.api.v1.endpoints import router as v1_router, set_queue
 from app.api.v1.auth import router as auth_router
 from app.api.v1.services import router as services_router
+from app.api.v1.webhooks import router as webhooks_router
 from app.db.postgres import pg_manager
 from app.db.mongo import mongo_manager
 
@@ -82,6 +83,7 @@ app.add_middleware(
 app.include_router(v1_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1/auth")
 app.include_router(services_router, prefix="/api/v1/services")
+app.include_router(webhooks_router, prefix="/api/v1/webhooks")
 
 @app.get("/health")
 async def health_check():

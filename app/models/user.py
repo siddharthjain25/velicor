@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
+from app.models.service import WebhookConfig
 
 class UserBase(BaseModel):
     username: str
@@ -18,10 +19,12 @@ class UserUpdate(BaseModel):
 class UserInDB(UserBase):
     hashed_password: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    webhooks: List[WebhookConfig] = []
 
 class User(UserBase):
     id: str = Field(alias="_id")
     created_at: datetime
+    webhooks: List[WebhookConfig] = []
 
     class Config:
         populate_by_name = True
