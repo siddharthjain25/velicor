@@ -29,13 +29,12 @@ async def get_service_from_key(x_api_key: str) -> Optional[dict]:
     if service:
         service["_id"] = str(service["_id"])
         
-        # Load user's global webhooks and attach them to service dict
+        # Combine service-specific webhooks with user's global webhooks
         from bson import ObjectId
         user = await mongo_manager.db.users.find_one({"_id": ObjectId(service["user_id"])})
-        if user and "webhooks" in user:
-            service["webhooks"] = user["webhooks"]
-        else:
-            service["webhooks"] = []
+        service_webhooks = service.get("webhooks", [])
+        user_webhooks = user.get("webhooks", []) if user else []
+        service["webhooks"] = service_webhooks + user_webhooks
             
         API_KEY_CACHE[x_api_key] = (service, now + CACHE_TTL)
         return service
