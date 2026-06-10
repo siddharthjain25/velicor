@@ -23,8 +23,9 @@ async def pipeline_worker(log_queue: asyncio.Queue):
                     await _trigger_flush(current_batch)
                     current_batch = []
         except asyncio.CancelledError:
-            if current_batch: await _trigger_flush(current_batch)
-            break
+            if current_batch:
+                await _trigger_flush(current_batch)
+            raise
         except Exception as e:
             logger.error(f"Error in pipeline worker loop: {e}", exc_info=True)
 

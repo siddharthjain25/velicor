@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
@@ -29,9 +29,10 @@ async def retention_worker():
                 retention = service.get("retention_days", 30)
                 await pg_manager.purge_old_logs(service["name"], retention)
         except asyncio.CancelledError:
-            break
+            logger.info("Retention worker task cancelled")
+            raise
         except Exception as e:
-            logger.error(f"Retention worker error: {e}", exc_info=True)
+            logger.exception(f"Retention worker error: {e}", exc_info=True)
         
         # Wait 24 hours before next run
         await asyncio.sleep(86400)
@@ -54,25 +55,70 @@ async def lifespan(app: FastAPI):
     logger.info("Application started")
     yield
     
-    if worker_task:
-        worker_task.cancel()
-        try: await worker_task
-        except asyncio.CancelledError: pass
+    try:
+        tasks = []
+        if worker_task:
+            worker_task.cancel()
+            tasks.append(worker_task)
+        if retention_task:
+            retention_task.cancel()
+            tasks.append(retention_task)
+            
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+            
         await flush_remaining(queue)
-        
-    if retention_task:
-        retention_task.cancel()
-        try: await retention_task
-        except asyncio.CancelledError: pass
-        
-    if not settings.is_serverless:
-        await pg_manager.disconnect()
-        await mongo_manager.disconnect()
-        logger.info("Application stopped")
-    else:
-        logger.info("Serverless: Skipping disconnect to allow connection reuse")
+    finally:
+        if not settings.is_serverless:
+            await pg_manager.disconnect()
+            await mongo_manager.disconnect()
+            logger.info("Application stopped")
+        else:
+            logger.info("Serverless: Skipping disconnect to allow connection reuse")
 
 app = FastAPI(title="Log Ingestion & Search Layer", lifespan=lifespan)
+
+from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    logger.warning(f"HTTP {exc.status_code} Error: {exc.detail} (Path: {request.url.path})")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": "HTTPException",
+            "message": exc.detail,
+            "statusCode": exc.status_code
+        }
+    )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    logger.warning(f"Validation Error: {exc.errors()} (Path: {request.url.path})")
+    return JSONResponse(
+        status_code=400,
+        content={
+            "error": "ValidationError",
+            "message": "The request payload or parameter format was invalid.",
+            "details": exc.errors(),
+            "statusCode": 400
+        }
+    )
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled system crash: {exc} (Path: {request.url.path})", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "InternalServerError",
+            "message": "An unexpected system error occurred on the server.",
+            "statusCode": 500
+        }
+    )
+
 app.add_middleware(
     CORSMiddleware, 
     allow_origins=settings.ALLOW_ORIGINS, 
@@ -84,6 +130,10 @@ app.include_router(v1_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1/auth")
 app.include_router(services_router, prefix="/api/v1/services")
 app.include_router(webhooks_router, prefix="/api/v1/webhooks")
+
+@app.get("/", include_in_schema=False)
+async def root_redirect():
+    return RedirectResponse(url="https://velicor-ui.vercel.app")
 
 @app.get("/health")
 async def health_check():
