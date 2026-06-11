@@ -20,6 +20,7 @@ dependencies = [
     "python-jose[cryptography]",
     "passlib[bcrypt]",
     "bcrypt",
+    "redis",
 ]
 
 [build-system]
