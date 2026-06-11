@@ -12,6 +12,7 @@ from app.api.v1.services import router as services_router
 from app.api.v1.webhooks import router as webhooks_router
 from app.db.postgres import pg_manager
 from app.db.mongo import mongo_manager
+from app.db.redis import redis_manager
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -41,6 +42,7 @@ async def retention_worker():
 async def lifespan(app: FastAPI):
     await pg_manager.connect()
     await mongo_manager.connect()
+    await redis_manager.connect()
     set_queue(queue)
     
     worker_task = None
@@ -56,6 +58,9 @@ async def lifespan(app: FastAPI):
     yield
     
     try:
+        from app.api.v1.endpoints import manager
+        await manager.close()
+        
         tasks = []
         if worker_task:
             worker_task.cancel()
@@ -72,8 +77,10 @@ async def lifespan(app: FastAPI):
         if not settings.is_serverless:
             await pg_manager.disconnect()
             await mongo_manager.disconnect()
+            await redis_manager.disconnect()
             logger.info("Application stopped")
         else:
+            await redis_manager.disconnect()
             logger.info("Serverless: Skipping disconnect to allow connection reuse")
 
 app = FastAPI(title="Log Ingestion & Search Layer", lifespan=lifespan)

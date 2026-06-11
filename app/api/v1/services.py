@@ -32,7 +32,7 @@ async def delete_service(
         raise HTTPException(status_code=404, detail="Service not found")
     
     # Invalidate cache before deletion
-    invalidate_service_cache(service_id)
+    await invalidate_service_cache(service_id)
 
     # 1. Delete from MongoDB
     await mongo_manager.db.services.delete_one({"_id": obj_id})
@@ -63,7 +63,7 @@ async def reset_service_key(
         raise HTTPException(status_code=404, detail="Service not found")
     
     # Invalidate cache before key reset
-    invalidate_service_cache(service_id)
+    await invalidate_service_cache(service_id)
 
     # Generate new secret key
     new_secret_key = secrets.token_urlsafe(32)
@@ -139,7 +139,7 @@ async def update_service(
         )
     
     # Invalidate cache after update
-    invalidate_service_cache(service_id)
+    await invalidate_service_cache(service_id)
 
     updated = await mongo_manager.db.services.find_one({"_id": obj_id})
     updated["_id"] = str(updated["_id"])
@@ -191,7 +191,7 @@ async def add_webhook(
         raise HTTPException(status_code=404, detail="Service not found")
     
     # Invalidate cache after adding webhook
-    invalidate_service_cache(service_id)
+    await invalidate_service_cache(service_id)
         
     return new_webhook
 
@@ -216,7 +216,7 @@ async def delete_webhook(
         raise HTTPException(status_code=404, detail="Service not found")
     
     # Invalidate cache after deleting webhook
-    invalidate_service_cache(service_id)
+    await invalidate_service_cache(service_id)
         
     return {"status": "deleted"}
 
@@ -245,7 +245,7 @@ async def update_webhook(
         raise HTTPException(status_code=404, detail="Service or Webhook not found")
     
     # Invalidate cache after updating webhook
-    invalidate_service_cache(service_id)
+    await invalidate_service_cache(service_id)
         
     return {"status": "updated"}
 

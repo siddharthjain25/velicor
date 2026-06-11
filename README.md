@@ -8,8 +8,9 @@ Velicor is a modern, lightweight log ingestion proxy designed for microservice e
 
 *   **⚡ High-Speed Ingestion**: Optimized for tens of thousands of logs per second using async batching and connection pooling.
 *   **📊 Real-time Analytics**: Instant visibility into log levels, error rates, and activity "heartbeats" via a responsive dashboard.
-*   **🚨 Proactive Alerting**: Configurable Webhooks for Slack, Discord, or custom endpoints. Get notified the second a `FATAL` error occurs.
+*   **🚨 Service-Scoped Alerting**: Configurable Webhooks for Slack, Discord, or custom endpoints. Isolate alerts to specific services using searchable multi-select filters.
 *   **🛡️ Dynamic Isolation**: Each service gets its own PostgreSQL table with automatic schema management and GIN/FTS indexing.
+*   **⚙️ Fleet Customizations**: Inline retention limits adjustment (1 to 365 days) and API key rotation directly within service card headers.
 *   **☁️ Serverless Aware**: Special optimizations for Vercel/AWS Lambda to prevent background task freezing and database connection exhaustion.
 *   **📱 Fully Responsive**: A modern React-based UI that works perfectly on desktop and mobile.
 
@@ -17,10 +18,11 @@ Velicor is a modern, lightweight log ingestion proxy designed for microservice e
 
 ## 🛠️ Tech Stack
 
--   **Backend**: FastAPI (Python 3.12+), AsyncPG, Motor (MongoDB Driver).
--   **Database**: 
+-   **Backend**: FastAPI (Python 3.12+), AsyncPG, Motor (MongoDB Driver), Redis-py (Async Redis client).
+-   **Database / Cache**: 
     -   **PostgreSQL**: High-speed log storage with Full-Text Search.
     -   **MongoDB**: Metadata management for services, users, and webhooks.
+    -   **Redis**: Distributed caching (API Key lookup) and real-time Pub/Sub live-tail log synchronization.
 -   **Frontend**: React 19, TypeScript, Tailwind CSS 4, Lucide React.
 -   **Real-time**: WebSockets (Persistent) & Fast Polling (Serverless Fallback).
 
@@ -137,7 +139,9 @@ const logToVelicor = async (level, message, metadata = {}) => {
     -   `B-Tree` for timestamps and status codes.
     -   `GIN` for structured JSONB metadata.
     -   `Full-Text Search` for high-speed keyword matching in log messages.
--   **Memory Caching**: 5-minute TTL cache for API key validation to reduce MongoDB load.
+-   **Distributed Caching**: API Key lookups and service configurations are cached in **Redis** with a 5-minute (300s) TTL (falling back to local memory cache if Redis is not configured), drastically reducing MongoDB query loads.
+-   **Upstash Connection Keep-Alives**: Redis client uses connection keep-alives (`health_check_interval=30` and automatic retry-on-timeout) to prevent connections from being dropped by serverless Redis providers.
+-   **WebSocket Pub/Sub Scaling**: WebSocket live-tail feeds are synchronized across horizontally scaled backend servers using **Redis Pub/Sub**, ensuring all connected clients receive log updates regardless of which replica ingested them.
 
 ---
 Velicor Systems © 2026. High-density telemetry simplified.

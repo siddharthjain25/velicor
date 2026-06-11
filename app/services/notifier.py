@@ -16,6 +16,12 @@ async def trigger_webhooks(webhooks: List[WebhookConfig], logs: List[Dict[str, A
         if not webhook.enabled:
             continue
 
+        # Check service filter
+        if webhook.services:
+            service_name = logs[0].get("service_name")
+            if service_name and service_name not in webhook.services:
+                continue
+
         matching_logs = []
         for log in logs:
             # Check level match

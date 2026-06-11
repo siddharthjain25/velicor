@@ -25,7 +25,7 @@ async def add_webhook(
         {"$push": {"webhooks": new_webhook.model_dump()}}
     )
     # Clear ingestion cache to reflect changes immediately
-    invalidate_service_cache()
+    await invalidate_service_cache()
     return new_webhook
 
 @router.delete("/{webhook_id}")
@@ -40,7 +40,7 @@ async def delete_webhook(
     if result.modified_count == 0:
         raise HTTPException(status_code=404, detail="Webhook not found")
     # Clear ingestion cache to reflect changes immediately
-    invalidate_service_cache()
+    await invalidate_service_cache()
     return {"status": "deleted"}
 
 @router.patch("/{webhook_id}")
@@ -57,5 +57,5 @@ async def update_webhook(
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Webhook not found")
     # Clear ingestion cache to reflect changes immediately
-    invalidate_service_cache()
+    await invalidate_service_cache()
     return {"status": "updated"}

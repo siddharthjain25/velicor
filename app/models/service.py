@@ -8,6 +8,7 @@ class WebhookConfig(BaseModel):
     levels: List[str] = ["ERROR", "FATAL"]
     keywords: Optional[List[str]] = None
     enabled: bool = True
+    services: Optional[List[str]] = None
 
 class ServiceBase(BaseModel):
     name: str

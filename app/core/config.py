@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     POSTGRES_URL: Optional[str] = None
     MONGO_URI: Optional[str] = None
     MONGO_DB_NAME: str = "velicor"
+    REDIS_URL: Optional[str] = None
     
     # Security
     JWT_SECRET_KEY: Optional[str] = None
