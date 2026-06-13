@@ -5,6 +5,7 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+
 class RedisManager:
     def __init__(self):
         self.client: Optional[aioredis.Redis] = None
@@ -22,7 +23,7 @@ class RedisManager:
                     encoding="utf-8",
                     decode_responses=True,
                     health_check_interval=30,
-                    retry_on_timeout=True
+                    retry_on_timeout=True,
                 )
                 await self.client.ping()
                 logger.info("Connected to Redis successfully")
@@ -38,5 +39,6 @@ class RedisManager:
                 logger.error(f"Error during Redis close: {e}")
             self.client = None
             logger.info("Disconnected from Redis")
+
 
 redis_manager = RedisManager()

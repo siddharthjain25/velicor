@@ -4,6 +4,7 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+
 class MongoManager:
     def __init__(self):
         self.client: AsyncIOMotorClient = None
@@ -21,7 +22,7 @@ class MongoManager:
 
     def get_db(self):
         if not self.client:
-            # We can't easily await here in a property, 
+            # We can't easily await here in a property,
             # but endpoints already handle async setup.
             # This is a safety fallback.
             pass
@@ -33,5 +34,6 @@ class MongoManager:
             self.client = None
             self.db = None
             logger.info("Disconnected from MongoDB")
+
 
 mongo_manager = MongoManager()

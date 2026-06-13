@@ -6,12 +6,16 @@ from app.db.redis import redis_manager
 
 logger = logging.getLogger(__name__)
 
+
 class RedisPersistentQueue:
     """
     A drop-in replacement wrapper for asyncio.Queue that uses Redis LPUSH/BLPOP
     when Redis is available, falling back gracefully to the in-memory queue otherwise.
     """
-    def __init__(self, fallback_queue: asyncio.Queue, redis_key: str = "velicor:ingest_queue"):
+
+    def __init__(
+        self, fallback_queue: asyncio.Queue, redis_key: str = "velicor:ingest_queue"
+    ):
         self.fallback_queue = fallback_queue
         self.redis_key = redis_key
 
@@ -27,7 +31,9 @@ class RedisPersistentQueue:
         try:
             await redis_manager.client.rpush(self.redis_key, orjson.dumps(item))
         except Exception as e:
-            logger.error(f"Failed to push to Redis queue: {e}. Falling back to in-memory queue.")
+            logger.error(
+                f"Failed to push to Redis queue: {e}. Falling back to in-memory queue."
+            )
             self.fallback_queue.put_nowait(item)
 
     async def get(self) -> Any:
@@ -42,12 +48,16 @@ class RedisPersistentQueue:
                 except asyncio.CancelledError:
                     raise
                 except Exception as e:
-                    logger.error(f"Redis queue pop error: {e}. Checking in-memory queue.")
+                    logger.error(
+                        f"Redis queue pop error: {e}. Checking in-memory queue."
+                    )
                     # If Redis fails, check if there are fallback memory items
                     if not self.fallback_queue.empty():
                         return await self.fallback_queue.get()
-                    await asyncio.sleep(1) # Prevent busy loop on Redis connection issues
-        
+                    await asyncio.sleep(
+                        1
+                    )  # Prevent busy loop on Redis connection issues
+
         # Fallback to standard memory queue
         return await self.fallback_queue.get()
 
