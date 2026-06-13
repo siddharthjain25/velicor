@@ -105,7 +105,20 @@ async def update_user_me(
 ):
     update_data = user_update.model_dump(exclude_unset=True)
     if "password" in update_data:
+        old_password = update_data.pop("old_password", None)
+        if not old_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Old password is required to change password",
+            )
+        if not verify_password(old_password, current_user["hashed_password"]):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Incorrect old password",
+            )
         update_data["hashed_password"] = get_password_hash(update_data.pop("password"))
+    else:
+        update_data.pop("old_password", None)
 
     if update_data:
         await mongo_manager.db.users.update_one(
