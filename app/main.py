@@ -25,7 +25,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-
 _memory_queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=settings.MAX_QUEUE_SIZE)
 queue = RedisPersistentQueue(_memory_queue)
 
