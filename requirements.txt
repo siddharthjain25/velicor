@@ -15,4 +15,6 @@ passlib[bcrypt]
 bcrypt
 redis
 pyotp
+pytest
+httpx
 

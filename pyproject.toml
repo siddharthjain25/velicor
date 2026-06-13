@@ -22,6 +22,8 @@ dependencies = [
     "bcrypt",
     "redis",
     "pyotp",
+    "pytest",
+    "httpx",
 ]
 
 [build-system]
