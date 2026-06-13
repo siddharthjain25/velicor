@@ -426,8 +426,6 @@ class PostgresManager:
                 WHERE timestamp >= NOW() - INTERVAL '{interval_hours} hours'
                 GROUP BY level
             """)
-
-            bucket = "1 hour" if interval_hours > 24 else "10 minutes"
             time_series = await conn.fetch(f"""
                 SELECT date_trunc('minute', timestamp) as bucket, COUNT(*) as count
                 FROM {table_name}

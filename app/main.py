@@ -3,6 +3,9 @@ import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.config import settings
 from app.services.worker import pipeline_worker, flush_remaining
@@ -13,13 +16,13 @@ from app.api.v1.webhooks import router as webhooks_router
 from app.db.postgres import pg_manager
 from app.db.mongo import mongo_manager
 from app.db.redis import redis_manager
+from app.services.queue import RedisPersistentQueue
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
-from app.services.queue import RedisPersistentQueue
 
 _memory_queue = asyncio.Queue(maxsize=settings.MAX_QUEUE_SIZE)
 queue = RedisPersistentQueue(_memory_queue)
@@ -106,10 +109,6 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Log Ingestion & Search Layer", lifespan=lifespan)
-
-from fastapi.responses import JSONResponse, RedirectResponse
-from fastapi.exceptions import RequestValidationError
-from starlette.exceptions import HTTPException as StarletteHTTPException
 
 
 @app.exception_handler(StarletteHTTPException)

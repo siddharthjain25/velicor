@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from pydantic import BaseModel
 from app.models.user import UserCreate, UserInDB, Token, User, UserUpdate
 from app.core.security import get_password_hash, verify_password, create_access_token
 from app.db.mongo import mongo_manager
@@ -135,9 +136,6 @@ async def delete_user_me(current_user: Annotated[dict, Depends(get_current_user)
     await mongo_manager.db.users.delete_one({"_id": current_user["_id"]})
 
     return None
-
-
-from pydantic import BaseModel
 
 
 class Verify2FARequest(BaseModel):
@@ -370,7 +368,6 @@ async def reset_password_with_2fa(data: ResetPasswordRequest):
 
     totp = pyotp.TOTP(secret)
     verified = False
-    used_backup = False
     hashed_backup_input = hashlib.sha256(data.code.upper().encode("utf-8")).hexdigest()
 
     # 1. Try verifying as TOTP
@@ -384,7 +381,6 @@ async def reset_password_with_2fa(data: ResetPasswordRequest):
         )
         if result.modified_count > 0:
             verified = True
-            used_backup = True
 
     if not verified:
         raise HTTPException(

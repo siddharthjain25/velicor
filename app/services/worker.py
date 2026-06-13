@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from datetime import datetime, timezone
 from typing import List, Any
 from app.core.config import settings
 from app.db.postgres import pg_manager

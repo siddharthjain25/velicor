@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from app.models.service import WebhookConfig
 from app.api.v1.auth import get_current_user
 from app.db.mongo import mongo_manager
