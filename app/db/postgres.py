@@ -121,9 +121,7 @@ class PostgresManager:
                         logger.info("Successfully migrated data to partitioned schema")
                         await conn.execute(f"DROP TABLE {table_name}_old")
                     except Exception as e:
-                        logger.error(
-                            f"Failed to copy data during migration from {table_name}_old to {table_name}"
-                        )
+                        logger.error("Failed to copy data during table migration")
                         # Revert renaming if something went wrong
                         await conn.execute(f"DROP TABLE IF EXISTS {table_name}")
                         await conn.execute(
