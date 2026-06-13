@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mxfile host="Electron">
+  <diagram name="Velicor and Beacon Integration" id="integration-architecture-diag">
+    <mxGraphModel dx="1710" dy="788" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        
+        <!-- Vertices -->
+        <mxCell id="user-service" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=2;fontSize=14;fontStyle=1;fillColor=#e7f5ff;strokeColor=#1c7ed6;fontColor=#0b7285;" value="User Application Service&lt;br/&gt;(e.g., Nexus Blog Backend)&lt;br/&gt;- Centralizes logging&lt;br/&gt;- Dispatches alert events" vertex="1">
+          <mxGeometry height="90" width="220" x="80" y="350" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="beacon-service" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=2;fontSize=14;fontStyle=1;fillColor=#e3fafc;strokeColor=#0c8599;fontColor=#0b7285;" value="Beacon Notification Engine&lt;br/&gt;(Fastify Pub/Sub Server)&lt;br/&gt;- Real-time WebSocket/SSE&lt;br/&gt;- Webhook delivery queues&lt;br/&gt;- Logs internally to Velicor" vertex="1">
+          <mxGeometry height="110" width="240" x="420" y="200" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="velicor-service" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=2;fontSize=14;fontStyle=1;fillColor=#fff5f5;strokeColor=#fa5252;fontColor=#e03131;" value="Velicor Log Aggregator&lt;br/&gt;(FastAPI Ingestion Server)&lt;br/&gt;- Asynchronous batch receiver&lt;br/&gt;- Analyzes and parses logs&lt;br/&gt;- Triggers webhooks on alert rules" vertex="1">
+          <mxGeometry height="110" width="240" x="420" y="490" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="alert-receivers" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=2;fontSize=14;fontStyle=1;fillColor=#ebfbee;strokeColor=#2b8a3e;fontColor=#2b8a3e;" value="Subscribers &amp;amp; Webhooks&lt;br/&gt;(Browsers, CLI, Slack)&lt;br/&gt;- Real-time incident logs" vertex="1">
+          <mxGeometry height="80" width="220" x="780" y="215" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="velicor-db" parent="1" style="shape=cylinder;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;strokeWidth=2;fontSize=14;fontStyle=1;fillColor=#e5dbff;strokeColor=#5f3dc4;fontColor=#5f3dc4;" value="PostgreSQL Storage&lt;br/&gt;- Isolated log tables&lt;br/&gt;- GIN Indexes &amp;amp; RLS policies" vertex="1">
+          <mxGeometry height="90" width="200" x="790" y="500" as="geometry" />
+        </mxCell>
+        
+        <!-- Edges -->
+        <mxCell id="edge-app-to-beacon" edge="1" parent="1" source="user-service" target="beacon-service" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#495057;fontSize=12;fontColor=#495057;exitX=0.5;exitY=0;entryX=0;entryY=0.5;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="190" y="340" as="sourcePoint" />
+            <mxPoint x="360" y="255" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="edge-app-to-velicor" edge="1" parent="1" source="user-service" target="velicor-service" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#495057;fontSize=12;fontColor=#495057;exitX=0.5;exitY=1;entryX=0;entryY=0.5;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="190" y="450" as="sourcePoint" />
+            <mxPoint x="360" y="545" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="edge-beacon-to-velicor" edge="1" parent="1" source="beacon-service" target="velicor-service" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#495057;fontSize=12;fontColor=#495057;exitX=0.75;exitY=1;entryX=0.75;entryY=0;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="600" y="320" as="sourcePoint" />
+            <mxPoint x="600" y="480" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="edge-velicor-to-beacon" edge="1" parent="1" source="velicor-service" target="beacon-service" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#495057;fontSize=12;fontColor=#495057;exitX=0.25;exitY=0;entryX=0.25;entryY=1;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="480" y="480" as="sourcePoint" />
+            <mxPoint x="480" y="320" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="edge-beacon-to-receivers" edge="1" parent="1" source="beacon-service" target="alert-receivers" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#495057;fontSize=12;fontColor=#495057;exitX=1;exitY=0.5;entryX=0;entryY=0.5;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="edge-velicor-to-db" edge="1" parent="1" source="velicor-service" target="velicor-db" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#495057;fontSize=12;fontColor=#495057;exitX=1;exitY=0.5;entryX=0;entryY=0.5;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

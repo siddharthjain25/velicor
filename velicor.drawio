@@ -8,10 +8,10 @@
         <mxCell id="nF8YWoamKlxkY7NQbO7J-1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=2;fontSize=14;fontStyle=1;fillColor=#e7f5ff;strokeColor=#1c7ed6;fontColor=#0b7285;" value="Microservices / SDKs&lt;br/&gt;(Python, Node.js)" vertex="1">
           <mxGeometry height="80" width="160" x="120" y="860" as="geometry" />
         </mxCell>
-        <mxCell id="nF8YWoamKlxkY7NQbO7J-2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=2;fontSize=14;fontStyle=1;fillColor=#e3fafc;strokeColor=#0c8599;fontColor=#0b7285;" value="Velicor API Server&lt;br/&gt;(FastAPI / PyOTP 2FA)&lt;br/&gt;- 2FA challenge on delete" vertex="1">
-          <mxGeometry height="80" width="180" x="240" y="710" as="geometry" />
+        <mxCell id="nF8YWoamKlxkY7NQbO7J-2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=2;fontSize=14;fontStyle=1;fillColor=#e3fafc;strokeColor=#0c8599;fontColor=#0b7285;" value="Velicor API Server&lt;br/&gt;(FastAPI / PyOTP 2FA)&lt;br/&gt;- 2FA challenge on delete&lt;br/&gt;- Password update verification&lt;br/&gt;- Backup codes generation &amp;amp; self-reset" vertex="1">
+          <mxGeometry height="120" width="180" x="240" y="710" as="geometry" />
         </mxCell>
-        <mxCell id="nF8YWoamKlxkY7NQbO7J-3" parent="1" style="shape=cylinder;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;strokeWidth=2;fontSize=14;fontStyle=1;fillColor=#ebfbee;strokeColor=#2b8a3e;fontColor=#2b8a3e;" value="MongoDB&lt;br/&gt;- Users &amp;amp; 2FA credentials&lt;br/&gt;- Service configs &amp;amp; Webhooks" vertex="1">
+        <mxCell id="nF8YWoamKlxkY7NQbO7J-3" parent="1" style="shape=cylinder;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;strokeWidth=2;fontSize=14;fontStyle=1;fillColor=#ebfbee;strokeColor=#2b8a3e;fontColor=#2b8a3e;" value="MongoDB&lt;br/&gt;- Users, 2FA configs &amp;amp; backup codes&lt;br/&gt;- Service configs &amp;amp; Webhooks" vertex="1">
           <mxGeometry height="90" width="180" x="240" y="195" as="geometry" />
         </mxCell>
         <mxCell id="nF8YWoamKlxkY7NQbO7J-4" parent="1" style="rhombus;whiteSpace=wrap;html=1;strokeWidth=2;fontSize=14;fontStyle=1;fillColor=#fff9db;strokeColor=#e67700;fontColor=#d9480f;" value="Platform Router&lt;br/&gt;(Serverless Aware)" vertex="1">
