@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from typing import Any
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -24,7 +25,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-_memory_queue = asyncio.Queue(maxsize=settings.MAX_QUEUE_SIZE)
+
+_memory_queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=settings.MAX_QUEUE_SIZE)
 queue = RedisPersistentQueue(_memory_queue)
 
 

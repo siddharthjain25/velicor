@@ -166,7 +166,7 @@ class PostgresManager:
 
         conn = await self.get_connection()
         try:
-            groups = {}
+            groups: Dict[str, List[Any]] = {}
             for data in batch:
                 service = data.get("service_name", "unknown")
                 table = self._get_table_name(service)
@@ -255,7 +255,7 @@ class PostgresManager:
             await self.ensure_table(table_name, conn)
 
             query = f"SELECT timestamp, level, status_code, message, metadata FROM {table_name} WHERE TRUE"
-            args = []
+            args: List[Any] = []
             arg_idx = 1
 
             if start_ts:

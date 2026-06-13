@@ -19,7 +19,7 @@ from app.services.notifier import trigger_webhooks
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-API_KEY_CACHE = {}
+API_KEY_CACHE: Dict[str, tuple] = {}
 CACHE_TTL = 300
 
 
@@ -78,16 +78,21 @@ async def get_service_from_key(x_api_key: str) -> Optional[dict]:
     return None
 
 
-async def invalidate_service_cache(service_id: str = None):
+async def invalidate_service_cache(service_id: Optional[str] = None):
     # Invalidate Redis cache if available
     redis_client = redis_manager.client
     if redis_client:
         try:
             if service_id:
-                x_api_key = await redis_client.get(
+                x_api_key_val = await redis_client.get(
                     f"velicor:service_to_key:{service_id}"
                 )
-                if x_api_key:
+                if x_api_key_val:
+                    x_api_key = (
+                        x_api_key_val.decode("utf-8")
+                        if isinstance(x_api_key_val, bytes)
+                        else x_api_key_val
+                    )
                     await redis_client.delete(f"velicor:apikey:{x_api_key}")
                     await redis_client.delete(f"velicor:service_to_key:{service_id}")
             else:
@@ -198,10 +203,10 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-ingestion_queue: Optional[asyncio.Queue] = None
+ingestion_queue: Any = None
 
 
-def set_queue(q: asyncio.Queue):
+def set_queue(q: Any):
     global ingestion_queue
     ingestion_queue = q
 

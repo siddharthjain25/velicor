@@ -7,7 +7,7 @@ from app.db.postgres import pg_manager
 logger = logging.getLogger(__name__)
 
 
-async def pipeline_worker(log_queue: asyncio.Queue):
+async def pipeline_worker(log_queue: Any):
     current_batch: List[Any] = []
     while True:
         try:
@@ -42,7 +42,7 @@ async def _trigger_flush(batch: List[Any]):
         logger.critical(f"Pipeline flush to Postgres failed: {e}", exc_info=True)
 
 
-async def flush_remaining(log_queue: asyncio.Queue):
+async def flush_remaining(log_queue: Any):
     remaining_batch = []
     while not log_queue.empty():
         try:

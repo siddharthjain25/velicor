@@ -29,7 +29,11 @@ class RedisPersistentQueue:
 
     async def _redis_push(self, item: Any):
         try:
-            await redis_manager.client.rpush(self.redis_key, orjson.dumps(item))
+            client = redis_manager.client
+            if client:
+                await client.rpush(self.redis_key, orjson.dumps(item))
+            else:
+                self.fallback_queue.put_nowait(item)
         except Exception as e:
             logger.error(
                 f"Failed to push to Redis queue: {e}. Falling back to in-memory queue."

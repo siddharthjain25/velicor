@@ -220,6 +220,8 @@ async def disable_2fa(
         raise HTTPException(status_code=400, detail="2FA is not currently enabled.")
 
     secret = current_user.get("two_factor_secret")
+    if not secret:
+        raise HTTPException(status_code=400, detail="2FA secret not found.")
     totp = pyotp.TOTP(secret)
 
     verified = False
@@ -264,6 +266,8 @@ async def generate_new_backup_codes(
         raise HTTPException(status_code=400, detail="2FA is not currently enabled.")
 
     secret = current_user.get("two_factor_secret")
+    if not secret:
+        raise HTTPException(status_code=400, detail="2FA secret not found.")
     totp = pyotp.TOTP(secret)
 
     # Verify current 2FA OTP code first for security
