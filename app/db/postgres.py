@@ -92,7 +92,7 @@ class PostgresManager:
                     return
                 elif relkind == "r":
                     logger.info(
-                        f"Table {table_name} exists but is not partitioned. Migrating to partitioned schema..."
+                        "Found unpartitioned table. Migrating to partitioned schema..."
                     )
                     # Rename the existing table
                     await conn.execute(
