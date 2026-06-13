@@ -122,7 +122,7 @@ class PostgresManager:
                         await conn.execute(f"DROP TABLE {table_name}_old")
                     except Exception as e:
                         logger.error(
-                            f"Failed to copy data from {table_name}_old to {table_name}: {e}"
+                            f"Failed to copy data during migration from {table_name}_old to {table_name}"
                         )
                         # Revert renaming if something went wrong
                         await conn.execute(f"DROP TABLE IF EXISTS {table_name}")
