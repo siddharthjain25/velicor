@@ -1,4 +1,10 @@
-from fastapi import APIRouter, status, WebSocket, WebSocketDisconnect, Header, HTTPException
+from fastapi import (
+    APIRouter,
+    WebSocket,
+    WebSocketDisconnect,
+    Header,
+    HTTPException,
+)
 from typing import List, Union, Optional, Dict, Any, Annotated
 import asyncio
 import orjson
@@ -13,8 +19,9 @@ from app.services.notifier import trigger_webhooks
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-API_KEY_CACHE = {}
+API_KEY_CACHE: Dict[str, tuple] = {}
 CACHE_TTL = 300
+
 
 async def get_service_from_key(x_api_key: str) -> Optional[dict]:
     # Try Redis cache first if available
@@ -33,28 +40,35 @@ async def get_service_from_key(x_api_key: str) -> Optional[dict]:
         service, expiry = API_KEY_CACHE[x_api_key]
         if now < expiry:
             return service
-    
+
     if not mongo_manager.client:
         await mongo_manager.connect()
-        
+
     service = await mongo_manager.db.services.find_one({"secret_key": x_api_key})
     if service:
         service["_id"] = str(service["_id"])
-        
+
         # Combine service-specific webhooks with user's global webhooks
         from bson import ObjectId
-        user = await mongo_manager.db.users.find_one({"_id": ObjectId(service["user_id"])})
+
+        user = await mongo_manager.db.users.find_one(
+            {"_id": ObjectId(service["user_id"])}
+        )
         service_webhooks = service.get("webhooks", [])
         user_webhooks = user.get("webhooks", []) if user else []
         service["webhooks"] = service_webhooks + user_webhooks
-            
+
         # Store in Redis if available
         if redis_client:
             try:
                 service_id = service["_id"]
                 serialized = orjson.dumps(service).decode("utf-8")
-                await redis_client.set(f"velicor:apikey:{x_api_key}", serialized, ex=CACHE_TTL)
-                await redis_client.set(f"velicor:service_to_key:{service_id}", x_api_key, ex=CACHE_TTL)
+                await redis_client.set(
+                    f"velicor:apikey:{x_api_key}", serialized, ex=CACHE_TTL
+                )
+                await redis_client.set(
+                    f"velicor:service_to_key:{service_id}", x_api_key, ex=CACHE_TTL
+                )
             except Exception as e:
                 logger.error(f"Error writing to Redis key cache: {e}")
 
@@ -63,14 +77,22 @@ async def get_service_from_key(x_api_key: str) -> Optional[dict]:
         return service
     return None
 
-async def invalidate_service_cache(service_id: str = None):
+
+async def invalidate_service_cache(service_id: Optional[str] = None):
     # Invalidate Redis cache if available
     redis_client = redis_manager.client
     if redis_client:
         try:
             if service_id:
-                x_api_key = await redis_client.get(f"velicor:service_to_key:{service_id}")
-                if x_api_key:
+                x_api_key_val = await redis_client.get(
+                    f"velicor:service_to_key:{service_id}"
+                )
+                if x_api_key_val:
+                    x_api_key = (
+                        x_api_key_val.decode("utf-8")
+                        if isinstance(x_api_key_val, bytes)
+                        else x_api_key_val
+                    )
                     await redis_client.delete(f"velicor:apikey:{x_api_key}")
                     await redis_client.delete(f"velicor:service_to_key:{service_id}")
             else:
@@ -83,11 +105,14 @@ async def invalidate_service_cache(service_id: str = None):
     # Invalidate local memory cache
     global API_KEY_CACHE
     if service_id:
-        to_delete = [k for k, v in API_KEY_CACHE.items() if v[0].get("_id") == service_id]
+        to_delete = [
+            k for k, v in API_KEY_CACHE.items() if v[0].get("_id") == service_id
+        ]
         for k in to_delete:
             del API_KEY_CACHE[k]
     else:
         API_KEY_CACHE.clear()
+
 
 async def redis_websocket_subscriber():
     while True:
@@ -96,11 +121,11 @@ async def redis_websocket_subscriber():
             if not redis_client:
                 await asyncio.sleep(5)
                 continue
-                
+
             pubsub = redis_client.pubsub()
             await pubsub.psubscribe("velicor:pubsub:*")
             logger.info("Subscribed to Redis Pub/Sub pattern: velicor:pubsub:*")
-            
+
             async for message in pubsub.listen():
                 if message["type"] == "pmessage":
                     channel = message["channel"]
@@ -114,6 +139,7 @@ async def redis_websocket_subscriber():
             logger.error(f"Error in Redis Pub/Sub WebSocket subscriber: {e}")
             await asyncio.sleep(5)
 
+
 class ConnectionManager:
     def __init__(self):
         self.active_connections: dict[str, list[WebSocket]] = defaultdict(list)
@@ -122,7 +148,7 @@ class ConnectionManager:
     async def connect(self, websocket: WebSocket, service_name: str):
         await websocket.accept()
         self.active_connections[service_name].append(websocket)
-        
+
         # Dynamically start Redis Pub/Sub subscriber if not running
         if redis_manager.client and not self.pubsub_task:
             self.pubsub_task = asyncio.create_task(redis_websocket_subscriber())
@@ -134,7 +160,7 @@ class ConnectionManager:
                 self.active_connections[service_name].remove(websocket)
             if not self.active_connections[service_name]:
                 del self.active_connections[service_name]
-                
+
         # Dynamically stop Redis Pub/Sub subscriber if no connections remain
         if not self.active_connections and self.pubsub_task:
             self.pubsub_task.cancel()
@@ -174,39 +200,42 @@ class ConnectionManager:
         else:
             await self.broadcast_local(message, service_name)
 
+
 manager = ConnectionManager()
 
-ingestion_queue: Optional[asyncio.Queue] = None
+ingestion_queue: Any = None
 
-def set_queue(q: asyncio.Queue):
+
+def set_queue(q: Any):
     global ingestion_queue
     ingestion_queue = q
+
 
 @router.post("/ingest")
 async def ingest_logs(
     payload: Union[Dict[str, Any], List[Dict[str, Any]]],
-    x_api_key: Annotated[Optional[str], Header()] = None
+    x_api_key: Annotated[Optional[str], Header()] = None,
 ):
     if not x_api_key:
         raise HTTPException(status_code=401, detail="Missing API Key")
-    
+
     # Validate API Key and get service name
     service = await get_service_from_key(x_api_key)
     if not service:
         raise HTTPException(status_code=403, detail="Invalid API Key")
-    
+
     verified_service_name = service["name"]
     incoming = [payload] if isinstance(payload, dict) else payload
     valid_logs = []
-    
+
     for log in incoming:
         if "level" not in log:
             logger.warning(f"Discarding log missing mandatory 'level' field: {log}")
             continue
-            
+
         log["service_name"] = verified_service_name
         valid_logs.append(log)
-        
+
         # Broadcast to Live UI
         if settings.is_serverless:
             await manager.broadcast(log, verified_service_name)
@@ -219,6 +248,7 @@ async def ingest_logs(
     # Trigger webhooks
     if "webhooks" in service and service["webhooks"]:
         from app.models.service import WebhookConfig
+
         webhooks = [WebhookConfig(**w) for w in service["webhooks"]]
         if settings.is_serverless:
             await trigger_webhooks(webhooks, valid_logs)
@@ -228,6 +258,7 @@ async def ingest_logs(
     if settings.is_serverless:
         # Synchronous flush for Vercel
         from app.db.postgres import pg_manager
+
         try:
             await pg_manager.insert_batch(valid_logs)
             return {"status": "created", "processed": len(valid_logs)}
@@ -241,6 +272,7 @@ async def ingest_logs(
                 ingestion_queue.put_nowait(log)
         return {"status": "accepted", "processed": len(valid_logs)}
 
+
 @router.get("/search")
 async def search_logs(
     start_ts: Optional[str] = None,
@@ -249,16 +281,17 @@ async def search_logs(
     status_code: Optional[int] = None,
     keyword: Optional[str] = None,
     limit: int = 100,
-    x_api_key: Annotated[Optional[str], Header()] = None
+    x_api_key: Annotated[Optional[str], Header()] = None,
 ):
     if not x_api_key:
         raise HTTPException(status_code=401, detail="Missing API Key")
-    
+
     service = await get_service_from_key(x_api_key)
     if not service:
         raise HTTPException(status_code=403, detail="Invalid API Key")
-    
+
     from app.db.postgres import pg_manager
+
     results = await pg_manager.search(
         service_name=service["name"],
         start_ts=start_ts,
@@ -266,16 +299,17 @@ async def search_logs(
         level=level,
         status_code=status_code,
         keyword=keyword,
-        limit=limit
+        limit=limit,
     )
     return results
+
 
 @router.websocket("/live")
 async def live_tail(websocket: WebSocket, api_key: Optional[str] = None):
     if not api_key:
         await websocket.close(code=1008, reason="Missing api_key")
         return
-        
+
     service = await get_service_from_key(api_key)
     if not service:
         await websocket.close(code=1008, reason="Invalid api_key")

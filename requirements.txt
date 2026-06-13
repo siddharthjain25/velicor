@@ -14,3 +14,7 @@ python-jose[cryptography]
 passlib[bcrypt]
 bcrypt
 redis
+pyotp
+pytest
+httpx
+

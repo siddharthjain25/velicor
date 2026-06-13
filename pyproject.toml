@@ -21,6 +21,9 @@ dependencies = [
     "passlib[bcrypt]",
     "bcrypt",
     "redis",
+    "pyotp",
+    "pytest",
+    "httpx",
 ]
 
 [build-system]
@@ -30,3 +33,6 @@ build-backend = "setuptools.build_meta"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+
+[tool.mypy]
+ignore_missing_imports = true
