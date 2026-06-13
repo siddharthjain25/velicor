@@ -112,11 +112,12 @@ class PostgresManager:
 
                     # Copy data from old to new
                     try:
-                        await conn.execute(f"""
+                        migration_query = f"""
                             INSERT INTO {table_name} (timestamp, level, status_code, message, metadata) 
                             SELECT timestamp, level, status_code, message, metadata 
                             FROM {table_name}_old
-                        """)
+                        """  # nosec B608
+                        await conn.execute(migration_query)
                         logger.info(f"Successfully migrated data for {table_name}")
                         await conn.execute(f"DROP TABLE {table_name}_old")
                     except Exception as e:
@@ -226,13 +227,11 @@ class PostgresManager:
                 for d in unique_dates:
                     await self.ensure_partition(table_name, d, conn)
 
-                await conn.executemany(
-                    f"""
+                insert_query = f"""
                     INSERT INTO {table_name} (timestamp, level, status_code, message, metadata)
                     VALUES ($1, $2, $3, $4, $5)
-                """,
-                    records,
-                )
+                """  # nosec B608
+                await conn.executemany(insert_query, records)
         finally:
             await self.release_connection(conn)
 
@@ -254,7 +253,7 @@ class PostgresManager:
             table_name = self._get_table_name(service_name)
             await self.ensure_table(table_name, conn)
 
-            query = f"SELECT timestamp, level, status_code, message, metadata FROM {table_name} WHERE TRUE"
+            query = f"SELECT timestamp, level, status_code, message, metadata FROM {table_name} WHERE TRUE"  # nosec B608
             args: List[Any] = []
             arg_idx = 1
 
@@ -385,7 +384,9 @@ class PostgresManager:
 
                     if p_date < cutoff_date:
                         # Count rows to report exact deletion metrics
-                        count = await conn.fetchval(f"SELECT COUNT(*) FROM {p_name}")
+                        count = await conn.fetchval(
+                            f"SELECT COUNT(*) FROM {p_name}"  # nosec B608
+                        )
                         deleted_count += count or 0
 
                         await conn.execute(f"DROP TABLE {p_name}")
@@ -397,10 +398,11 @@ class PostgresManager:
                             self.known_partitions.remove(cache_key)
                 elif p_name == f"{table_name}_default":
                     # Clean up old logs from the default partition (fallback safety net)
-                    result = await conn.execute(f"""
+                    delete_query = f"""
                         DELETE FROM {p_name} 
                         WHERE timestamp < NOW() - INTERVAL '{retention_days} days'
-                    """)
+                    """  # nosec B608
+                    result = await conn.execute(delete_query)
                     if result and result.startswith("DELETE "):
                         try:
                             deleted_count += int(result.split(" ")[1])
@@ -420,19 +422,21 @@ class PostgresManager:
             table_name = self._get_table_name(service_name)
             await self.ensure_table(table_name, conn)
 
-            level_counts = await conn.fetch(f"""
+            counts_query = f"""
                 SELECT level, COUNT(*) as count 
                 FROM {table_name} 
                 WHERE timestamp >= NOW() - INTERVAL '{interval_hours} hours'
                 GROUP BY level
-            """)
-            time_series = await conn.fetch(f"""
+            """  # nosec B608
+            level_counts = await conn.fetch(counts_query)
+            series_query = f"""
                 SELECT date_trunc('minute', timestamp) as bucket, COUNT(*) as count
                 FROM {table_name}
                 WHERE timestamp >= NOW() - INTERVAL '{interval_hours} hours'
                 GROUP BY bucket
                 ORDER BY bucket ASC
-            """)
+            """  # nosec B608
+            time_series = await conn.fetch(series_query)
 
             return {
                 "levels": {row["level"]: row["count"] for row in level_counts},

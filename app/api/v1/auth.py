@@ -1,12 +1,16 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
+
 from app.models.user import UserCreate, UserInDB, Token, User, UserUpdate
 from app.core.security import get_password_hash, verify_password, create_access_token
 from app.db.mongo import mongo_manager
 from jose import jwt, JWTError
 from app.core.config import settings
 from typing import Annotated
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Auth"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/token")
@@ -74,12 +78,16 @@ async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
         )
         return {
             "access_token": temp_token,
-            "token_type": "2fa_temp",
+            "token_type": "2fa_temp",  # nosec B105
             "requires_2fa": True,
         }
 
     access_token = create_access_token(data={"sub": user["username"]})
-    return {"access_token": access_token, "token_type": "bearer", "requires_2fa": False}
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",  # nosec B105
+        "requires_2fa": False,
+    }
 
 
 @router.get("/me", response_model=User)
@@ -125,9 +133,10 @@ async def delete_user_me(current_user: Annotated[dict, Depends(get_current_user)
     for service in services:
         try:
             await pg_manager.delete_table(service["name"])
-        except Exception:
-            # Continue even if table deletion fails
-            pass
+        except Exception as e:
+            logger.warning(
+                f"Failed to delete table for service {service.get('name')}: {e}"
+            )
 
     # 3. Delete all services from MongoDB
     await mongo_manager.db.services.delete_many({"user_id": user_id})
@@ -245,7 +254,7 @@ async def disable_2fa(
         {
             "$set": {
                 "two_factor_enabled": False,
-                "two_factor_secret": None,
+                "two_factor_secret": None,  # nosec B105
                 "two_factor_backup_codes": [],
             }
         },
@@ -305,7 +314,7 @@ async def verify_2fa_login(data: TokenVerify2FARequest):
         )
         username: str = payload.get("sub")
         token_type: str = payload.get("type")
-        if username is None or token_type != "2fa_temp":
+        if username is None or token_type != "2fa_temp":  # nosec B105
             raise HTTPException(
                 status_code=401, detail="Invalid temporary session token"
             )
@@ -345,7 +354,11 @@ async def verify_2fa_login(data: TokenVerify2FARequest):
         )
 
     access_token = create_access_token(data={"sub": user["username"]})
-    return {"access_token": access_token, "token_type": "bearer", "requires_2fa": False}
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",  # nosec B105
+        "requires_2fa": False,
+    }
 
 
 @router.post("/reset-password")
