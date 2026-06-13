@@ -27,4 +27,11 @@ class MongoManager:
             pass
         return self.db
 
+    async def disconnect(self):
+        if self.client:
+            self.client.close()
+            self.client = None
+            self.db = None
+            logger.info("Disconnected from MongoDB")
+
 mongo_manager = MongoManager()

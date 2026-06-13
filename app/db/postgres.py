@@ -1,7 +1,8 @@
 import asyncpg
 import logging
 import orjson
-from datetime import datetime, timezone
+import re
+from datetime import datetime, timezone, date, timedelta
 from typing import List, Dict, Any, Optional
 from app.core.config import settings
 
@@ -11,6 +12,7 @@ class PostgresManager:
     def __init__(self):
         self.pool: Optional[asyncpg.Pool] = None
         self.known_tables = set()
+        self.known_partitions = set()
 
     async def connect(self):
         if not settings.POSTGRES_URL:
@@ -67,22 +69,80 @@ class PostgresManager:
         if table_name in self.known_tables:
             return
 
+        async with conn.transaction():
+            # Query pg_class to check if table exists and if it is partitioned
+            class_info = await conn.fetchrow("""
+                SELECT relkind FROM pg_class 
+                JOIN pg_namespace ON pg_class.relnamespace = pg_namespace.oid 
+                WHERE relname = $1 AND nspname = 'public'
+            """, table_name)
+
+            if class_info:
+                relkind = class_info["relkind"]
+                if isinstance(relkind, bytes):
+                    relkind = relkind.decode("utf-8")
+                if relkind == 'p':
+                    self.known_tables.add(table_name)
+                    return
+                elif relkind == 'r':
+                    logger.info(f"Table {table_name} exists but is not partitioned. Migrating to partitioned schema...")
+                    # Rename the existing table
+                    await conn.execute(f"ALTER TABLE {table_name} RENAME TO {table_name}_old")
+                    
+                    # Drop old indexes to prevent name conflicts during index creation on the new table
+                    await conn.execute(f"""
+                        DROP INDEX IF EXISTS idx_{table_name}_ts;
+                        DROP INDEX IF EXISTS idx_{table_name}_status;
+                        DROP INDEX IF EXISTS idx_{table_name}_metadata;
+                        DROP INDEX IF EXISTS idx_{table_name}_message_fts;
+                    """)
+                    
+                    # Create the new partitioned table
+                    await self._create_partitioned_parent_table(table_name, conn)
+                    
+                    # Copy data from old to new
+                    try:
+                        await conn.execute(f"""
+                            INSERT INTO {table_name} (timestamp, level, status_code, message, metadata) 
+                            SELECT timestamp, level, status_code, message, metadata 
+                            FROM {table_name}_old
+                        """)
+                        logger.info(f"Successfully migrated data for {table_name}")
+                        await conn.execute(f"DROP TABLE {table_name}_old")
+                    except Exception as e:
+                        logger.error(f"Failed to copy data from {table_name}_old to {table_name}: {e}")
+                        # Revert renaming if something went wrong
+                        await conn.execute(f"DROP TABLE IF EXISTS {table_name}")
+                        await conn.execute(f"ALTER TABLE {table_name}_old RENAME TO {table_name}")
+                        raise e
+                    self.known_tables.add(table_name)
+                    return
+
+            # Table does not exist, create it as a partitioned table
+            await self._create_partitioned_parent_table(table_name, conn)
+            self.known_tables.add(table_name)
+
+    async def _create_partitioned_parent_table(self, table_name: str, conn: asyncpg.Connection):
         await conn.execute(f"""
             CREATE TABLE IF NOT EXISTS {table_name} (
-                id SERIAL PRIMARY KEY,
-                timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                id SERIAL,
+                timestamp TIMESTAMPTZ NOT NULL,
                 level VARCHAR(10) NOT NULL,
                 status_code INTEGER,
                 message TEXT,
-                metadata JSONB
-            );
+                metadata JSONB,
+                PRIMARY KEY (id, timestamp)
+            ) PARTITION BY RANGE (timestamp);
+            
             CREATE INDEX IF NOT EXISTS idx_{table_name}_ts ON {table_name} (timestamp);
             CREATE INDEX IF NOT EXISTS idx_{table_name}_status ON {table_name} (status_code);
             CREATE INDEX IF NOT EXISTS idx_{table_name}_metadata ON {table_name} USING GIN (metadata);
             CREATE INDEX IF NOT EXISTS idx_{table_name}_message_fts ON {table_name} USING GIN (to_tsvector('english', message));
             ALTER TABLE {table_name} ENABLE ROW LEVEL SECURITY;
+            
+            -- Create default partition for safety/fallback
+            CREATE TABLE IF NOT EXISTS {table_name}_default PARTITION OF {table_name} DEFAULT;
         """)
-        self.known_tables.add(table_name)
 
     async def insert_batch(self, batch: List[Dict[str, Any]]):
         if not settings.POSTGRES_URL: return
@@ -133,6 +193,12 @@ class PostgresManager:
 
             for table_name, records in groups.items():
                 await self.ensure_table(table_name, conn)
+                
+                # Ensure all required daily partitions exist
+                unique_dates = {rec[0].date() for rec in records}
+                for d in unique_dates:
+                    await self.ensure_partition(table_name, d, conn)
+
                 await conn.executemany(f"""
                     INSERT INTO {table_name} (timestamp, level, status_code, message, metadata)
                     VALUES ($1, $2, $3, $4, $5)
@@ -203,13 +269,31 @@ class PostgresManager:
             await conn.execute(f"DROP TABLE IF EXISTS {table_name}")
             if table_name in self.known_tables:
                 self.known_tables.remove(table_name)
+            self.known_partitions = {k for k in self.known_partitions if not k.startswith(f"{table_name}:")}
             logger.info(f"Dropped table {table_name} for service {service_name}")
         finally:
             await self.release_connection(conn)
 
-    async def purge_old_logs(self, service_name: str, retention_days: int):
-        if not settings.POSTGRES_URL: return
-        if retention_days <= 0: return
+    async def ensure_partition(self, parent_table: str, day: date, conn: asyncpg.Connection):
+        partition_suffix = day.strftime("y%Ym%md%d")
+        cache_key = f"{parent_table}:{partition_suffix}"
+        if cache_key in self.known_partitions:
+            return
+            
+        partition_name = f"{parent_table}_{partition_suffix}"
+        start_date = day.strftime("%Y-%m-%d")
+        next_date = (day + timedelta(days=1)).strftime("%Y-%m-%d")
+        
+        await conn.execute(f"""
+            CREATE TABLE IF NOT EXISTS {partition_name} 
+            PARTITION OF {parent_table} 
+            FOR VALUES FROM ('{start_date} 00:00:00+00') TO ('{next_date} 00:00:00+00');
+        """)
+        self.known_partitions.add(cache_key)
+
+    async def purge_old_logs(self, service_name: str, retention_days: int) -> int:
+        if not settings.POSTGRES_URL: return 0
+        if retention_days <= 0: return 0
             
         conn = await self.get_connection()
         try:
@@ -221,12 +305,54 @@ class PostgresManager:
                 )
             """, table_name)
             
-            if exists:
-                result = await conn.execute(f"""
-                    DELETE FROM {table_name} 
-                    WHERE timestamp < NOW() - INTERVAL '{retention_days} days'
-                """)
-                logger.info(f"Purged old logs from {table_name}: {result}")
+            if not exists:
+                return 0
+
+            # Find all partition tables inheriting from the parent table
+            partitions = await conn.fetch("""
+                SELECT child.relname AS partition_name
+                FROM pg_inherits
+                JOIN pg_class parent ON pg_inherits.inhparent = parent.oid
+                JOIN pg_class child ON pg_inherits.inhrelid = child.oid
+                WHERE parent.relname = $1
+            """, table_name)
+            
+            deleted_count = 0
+            cutoff_date = date.today() - timedelta(days=retention_days)
+            partition_re = re.compile(r".*_y(\d{4})m(\d{2})d(\d{2})$")
+            
+            for row in partitions:
+                p_name = row["partition_name"]
+                match = partition_re.match(p_name)
+                if match:
+                    p_year, p_month, p_day = map(int, match.groups())
+                    p_date = date(p_year, p_month, p_day)
+                    
+                    if p_date < cutoff_date:
+                        # Count rows to report exact deletion metrics
+                        count = await conn.fetchval(f"SELECT COUNT(*) FROM {p_name}")
+                        deleted_count += (count or 0)
+                        
+                        await conn.execute(f"DROP TABLE {p_name}")
+                        logger.info(f"Dropped expired log partition table: {p_name}")
+                        
+                        # Remove from local partition cache
+                        cache_key = p_name.replace(f"{table_name}_", f"{table_name}:")
+                        if cache_key in self.known_partitions:
+                            self.known_partitions.remove(cache_key)
+                elif p_name == f"{table_name}_default":
+                    # Clean up old logs from the default partition (fallback safety net)
+                    result = await conn.execute(f"""
+                        DELETE FROM {p_name} 
+                        WHERE timestamp < NOW() - INTERVAL '{retention_days} days'
+                    """)
+                    if result and result.startswith("DELETE "):
+                        try:
+                            deleted_count += int(result.split(" ")[1])
+                        except (IndexError, ValueError):
+                            pass
+
+            return deleted_count
         finally:
             await self.release_connection(conn)
 

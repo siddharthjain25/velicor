@@ -17,7 +17,9 @@ from app.db.redis import redis_manager
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-queue: asyncio.Queue = asyncio.Queue(maxsize=settings.MAX_QUEUE_SIZE)
+from app.services.queue import RedisPersistentQueue
+_memory_queue = asyncio.Queue(maxsize=settings.MAX_QUEUE_SIZE)
+queue = RedisPersistentQueue(_memory_queue)
 
 async def retention_worker():
     # Small delay to let system settle
@@ -28,7 +30,15 @@ async def retention_worker():
             all_services = await mongo_manager.db.services.find({}).to_list(None)
             for service in all_services:
                 retention = service.get("retention_days", 30)
-                await pg_manager.purge_old_logs(service["name"], retention)
+                deleted_count = await pg_manager.purge_old_logs(service["name"], retention)
+                
+                # Send webhook notification if configured
+                webhooks_data = service.get("webhooks", [])
+                if webhooks_data:
+                    from app.models.service import WebhookConfig
+                    from app.services.notifier import trigger_retention_webhooks
+                    webhooks = [WebhookConfig(**w) for w in webhooks_data]
+                    await trigger_retention_webhooks(webhooks, service["name"], retention, deleted_count)
         except asyncio.CancelledError:
             logger.info("Retention worker task cancelled")
             raise

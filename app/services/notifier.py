@@ -3,6 +3,7 @@ import logging
 import requests
 import orjson
 from typing import List, Dict, Any
+from datetime import datetime
 from app.models.service import WebhookConfig
 from app.core.config import settings
 
@@ -107,3 +108,83 @@ async def send_webhook_request(url: str, logs: List[Dict[str, Any]]):
             logger.info(f"Successfully delivered webhook alert to {url}")
     except Exception as e:
         logger.error(f"Error sending webhook to {url}: {e}")
+
+async def trigger_retention_webhooks(webhooks: List[WebhookConfig], service_name: str, retention_days: int, deleted_count: int):
+    if not webhooks:
+        return
+
+    for webhook in webhooks:
+        if not webhook.enabled:
+            continue
+        
+        # Check service filter
+        if webhook.services and service_name not in webhook.services:
+            continue
+
+        # Trigger retention webhook delivery
+        if settings.is_serverless:
+            await send_retention_webhook_request(webhook.url, service_name, retention_days, deleted_count)
+        else:
+            asyncio.create_task(send_retention_webhook_request(webhook.url, service_name, retention_days, deleted_count))
+
+async def send_retention_webhook_request(url: str, service_name: str, retention_days: int, deleted_count: int):
+    try:
+        # Default generic payload
+        payload: Dict[str, Any] = {
+            "event": "log_retention",
+            "service": service_name,
+            "retention_days": retention_days,
+            "deleted_count": deleted_count,
+            "timestamp": datetime.utcnow().isoformat() + "Z"
+        }
+
+        # Discord Specific Formatting
+        if "discord.com/api/webhooks" in url:
+            payload = {
+                "content": f"🧹 **Velicor Retention**: Purged old logs for service `{service_name}`",
+                "embeds": [{
+                    "title": f"Log Retention Completed: {service_name}",
+                    "color": 3447003,
+                    "fields": [
+                        {"name": "Retention Policy", "value": f"{retention_days} days", "inline": True},
+                        {"name": "Logs Purged", "value": f"{deleted_count:,}", "inline": True}
+                    ],
+                    "footer": {"text": f"Completed at: {datetime.utcnow().isoformat()}Z"}
+                }]
+            }
+
+        # Slack Specific Formatting
+        elif "hooks.slack.com/services" in url:
+            payload = {
+                "text": f"🧹 *Velicor Retention*: Purged {deleted_count:,} logs for service `{service_name}` (older than {retention_days} days)",
+                "blocks": [
+                    {
+                        "type": "section",
+                        "text": {"type": "mrkdwn", "text": f"🧹 *Velicor Retention*: Purged logs for service `{service_name}`"}
+                    },
+                    {
+                        "type": "section",
+                        "fields": [
+                            {"type": "mrkdwn", "text": f"*Retention Policy:* {retention_days} days"},
+                            {"type": "mrkdwn", "text": f"*Logs Purged:* {deleted_count:,}"}
+                        ]
+                    }
+                ]
+            }
+
+        def do_post():
+            return requests.post(
+                url, 
+                data=orjson.dumps(payload),
+                headers={"Content-Type": "application/json"},
+                timeout=5
+            )
+        
+        response = await asyncio.to_thread(do_post)
+        if response.status_code >= 400:
+            logger.error(f"Retention webhook delivery failed to {url}: {response.status_code} - {response.text}")
+        else:
+            logger.info(f"Successfully delivered retention webhook to {url}")
+    except Exception as e:
+        logger.error(f"Error sending retention webhook to {url}: {e}")
+

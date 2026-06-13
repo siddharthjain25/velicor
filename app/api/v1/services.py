@@ -14,13 +14,49 @@ router = APIRouter(tags=["Services"])
 @router.delete("/{service_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_service(
     service_id: str,
-    current_user: Annotated[dict, Depends(get_current_user)]
+    current_user: Annotated[dict, Depends(get_current_user)],
+    x_2fa_code: Annotated[Optional[str], Header(alias="X-2FA-Code")] = None,
+    code: Optional[str] = None
 ):
     from bson import ObjectId
     try:
         obj_id = ObjectId(service_id)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid service ID")
+
+    # Verify 2FA if enabled
+    if current_user.get("two_factor_enabled"):
+        verification_code = x_2fa_code or code
+        if not verification_code:
+            raise HTTPException(
+                status_code=403, 
+                detail="Two-factor authentication code is required to delete this service. Please provide it in the 'X-2FA-Code' header."
+            )
+            
+        import pyotp
+        import hashlib
+        secret = current_user.get("two_factor_secret")
+        if not secret:
+            raise HTTPException(status_code=500, detail="2FA state is corrupted")
+            
+        totp = pyotp.TOTP(secret)
+        verified = False
+        
+        # 1. Try verifying as TOTP
+        if totp.verify(verification_code, valid_window=1):
+            verified = True
+        else:
+            # 2. Try verifying as backup code (atomic consume)
+            hashed_input = hashlib.sha256(verification_code.upper().encode('utf-8')).hexdigest()
+            result = await mongo_manager.db.users.update_one(
+                {"_id": current_user["_id"], "two_factor_backup_codes": hashed_input},
+                {"$pull": {"two_factor_backup_codes": hashed_input}}
+            )
+            if result.modified_count > 0:
+                verified = True
+                
+        if not verified:
+            raise HTTPException(status_code=400, detail="Invalid 2FA verification code or backup code")
 
     # Find the service and verify ownership
     service = await mongo_manager.db.services.find_one({
@@ -258,9 +294,16 @@ async def trigger_global_purge(
     if settings.CRON_SECRET and x_cron_secret == settings.CRON_SECRET:
         all_services = await mongo_manager.db.services.find({}).to_list(None)
         count = 0
+        from app.models.service import WebhookConfig
+        from app.services.notifier import trigger_retention_webhooks
         for service in all_services:
             retention = service.get("retention_days", 30)
-            await pg_manager.purge_old_logs(service["name"], retention)
+            deleted_count = await pg_manager.purge_old_logs(service["name"], retention)
+            
+            webhooks_data = service.get("webhooks", [])
+            if webhooks_data:
+                webhooks = [WebhookConfig(**w) for w in webhooks_data]
+                await trigger_retention_webhooks(webhooks, service["name"], retention, deleted_count)
             count += 1
         return {"message": f"System-wide purge completed for {count} services"}
 
@@ -278,9 +321,16 @@ async def trigger_global_purge(
 
     user_services = await mongo_manager.db.services.find({"user_id": str(current_user["_id"])}).to_list(None)
     count = 0
+    from app.models.service import WebhookConfig
+    from app.services.notifier import trigger_retention_webhooks
     for service in user_services:
         retention = service.get("retention_days", 30)
-        await pg_manager.purge_old_logs(service["name"], retention)
+        deleted_count = await pg_manager.purge_old_logs(service["name"], retention)
+        
+        webhooks_data = service.get("webhooks", [])
+        if webhooks_data:
+            webhooks = [WebhookConfig(**w) for w in webhooks_data]
+            await trigger_retention_webhooks(webhooks, service["name"], retention, deleted_count)
         count += 1
         
     return {"message": f"Purge completed for {count} services"}

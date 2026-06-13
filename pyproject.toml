@@ -21,6 +21,7 @@ dependencies = [
     "passlib[bcrypt]",
     "bcrypt",
     "redis",
+    "pyotp",
 ]
 
 [build-system]
