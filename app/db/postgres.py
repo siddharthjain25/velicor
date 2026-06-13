@@ -118,7 +118,7 @@ class PostgresManager:
                             FROM {table_name}_old
                         """  # nosec B608
                         await conn.execute(migration_query)
-                        logger.info(f"Successfully migrated data for {table_name}")
+                        logger.info("Successfully migrated data to partitioned schema")
                         await conn.execute(f"DROP TABLE {table_name}_old")
                     except Exception as e:
                         logger.error(
