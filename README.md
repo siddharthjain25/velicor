@@ -142,6 +142,3 @@ const logToVelicor = async (level, message, metadata = {}) => {
 -   **Distributed Caching**: API Key lookups and service configurations are cached in **Redis** with a 5-minute (300s) TTL (falling back to local memory cache if Redis is not configured), drastically reducing MongoDB query loads.
 -   **Upstash Connection Keep-Alives**: Redis client uses connection keep-alives (`health_check_interval=30` and automatic retry-on-timeout) to prevent connections from being dropped by serverless Redis providers.
 -   **WebSocket Pub/Sub Scaling**: WebSocket live-tail feeds are synchronized across horizontally scaled backend servers using **Redis Pub/Sub**, ensuring all connected clients receive log updates regardless of which replica ingested them.
-
----
-Velicor Systems © 2026. High-density telemetry simplified.
