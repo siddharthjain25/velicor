@@ -335,10 +335,10 @@ class PostgresManager:
         """)
         self.known_partitions.add(cache_key)
 
-    async def purge_old_logs(self, service_name: str, retention_days: int) -> int:
+    async def purge_old_logs(self, service_name: str, retention_minutes: int) -> int:
         if not settings.POSTGRES_URL:
             return 0
-        if retention_days <= 0:
+        if retention_minutes <= 0:
             return 0
 
         conn = await self.get_connection()
@@ -370,7 +370,7 @@ class PostgresManager:
             )
 
             deleted_count = 0
-            cutoff_date = date.today() - timedelta(days=retention_days)
+            cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=retention_minutes)
             partition_re = re.compile(r".*_y(\d{4})m(\d{2})d(\d{2})$")
 
             for row in partitions:
@@ -378,9 +378,9 @@ class PostgresManager:
                 match = partition_re.match(p_name)
                 if match:
                     p_year, p_month, p_day = map(int, match.groups())
-                    p_date = date(p_year, p_month, p_day)
+                    p_end_datetime = datetime(p_year, p_month, p_day, tzinfo=timezone.utc) + timedelta(days=1)
 
-                    if p_date < cutoff_date:
+                    if p_end_datetime <= cutoff_time:
                         # Count rows to report exact deletion metrics
                         count = await conn.fetchval(
                             f"SELECT COUNT(*) FROM {p_name}"  # nosec B608
@@ -394,13 +394,25 @@ class PostgresManager:
                         cache_key = p_name.replace(f"{table_name}_", f"{table_name}:")
                         if cache_key in self.known_partitions:
                             self.known_partitions.remove(cache_key)
+                    else:
+                        # Partially expired partition, delete old rows using a query
+                        delete_query = f"""
+                            DELETE FROM {p_name} 
+                            WHERE timestamp < $1
+                        """  # nosec B608
+                        result = await conn.execute(delete_query, cutoff_time)
+                        if result and result.startswith("DELETE "):
+                            try:
+                                deleted_count += int(result.split(" ")[1])
+                            except (IndexError, ValueError):
+                                pass
                 elif p_name == f"{table_name}_default":
                     # Clean up old logs from the default partition (fallback safety net)
                     delete_query = f"""
                         DELETE FROM {p_name} 
-                        WHERE timestamp < NOW() - INTERVAL '{retention_days} days'
+                        WHERE timestamp < $1
                     """  # nosec B608
-                    result = await conn.execute(delete_query)
+                    result = await conn.execute(delete_query, cutoff_time)
                     if result and result.startswith("DELETE "):
                         try:
                             deleted_count += int(result.split(" ")[1])

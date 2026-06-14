@@ -37,9 +37,12 @@ async def retention_worker():
             logger.info("Running automated retention purge")
             all_services = await mongo_manager.db.services.find({}).to_list(None)
             for service in all_services:
-                retention = service.get("retention_days", 30)
+                retention_minutes = service.get("retention_minutes")
+                if retention_minutes is None:
+                    retention_minutes = service.get("retention_days", 30) * 1440
+
                 deleted_count = await pg_manager.purge_old_logs(
-                    service["name"], retention
+                    service["name"], retention_minutes
                 )
 
                 # Send webhook notification if configured
@@ -50,7 +53,7 @@ async def retention_worker():
 
                     webhooks = [WebhookConfig(**w) for w in webhooks_data]
                     await trigger_retention_webhooks(
-                        webhooks, service["name"], retention, deleted_count
+                        webhooks, service["name"], retention_minutes, deleted_count
                     )
         except asyncio.CancelledError:
             logger.info("Retention worker task cancelled")
@@ -58,8 +61,8 @@ async def retention_worker():
         except Exception as e:
             logger.exception(f"Retention worker error: {e}", exc_info=True)
 
-        # Wait 24 hours before next run
-        await asyncio.sleep(86400)
+        # Wait 1 minute before next run to support minute-level retention policies
+        await asyncio.sleep(60)
 
 
 @asynccontextmanager
@@ -73,10 +76,13 @@ async def lifespan(app: FastAPI):
     retention_task = None
     if not settings.SERVERLESS_MODE:
         worker_task = asyncio.create_task(pipeline_worker(queue))
-        retention_task = asyncio.create_task(retention_worker())
         logger.info("Background pipeline worker started")
     else:
         logger.info("Running in SERVERLESS MODE (Sync ingestion)")
+
+    # Always start retention worker task (will run whenever the process is active)
+    retention_task = asyncio.create_task(retention_worker())
+    logger.info("Background retention worker started")
 
     logger.info("Application started")
     yield

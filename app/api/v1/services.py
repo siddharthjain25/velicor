@@ -314,14 +314,16 @@ async def trigger_global_purge(
         from app.services.notifier import trigger_retention_webhooks
 
         for service in all_services:
-            retention = service.get("retention_days", 30)
-            deleted_count = await pg_manager.purge_old_logs(service["name"], retention)
+            retention_minutes = service.get("retention_minutes")
+            if retention_minutes is None:
+                retention_minutes = service.get("retention_days", 30) * 1440
+            deleted_count = await pg_manager.purge_old_logs(service["name"], retention_minutes)
 
             webhooks_data = service.get("webhooks", [])
             if webhooks_data:
                 webhooks = [WebhookConfig(**w) for w in webhooks_data]
                 await trigger_retention_webhooks(
-                    webhooks, service["name"], retention, deleted_count
+                    webhooks, service["name"], retention_minutes, deleted_count
                 )
             count += 1
         return {"message": f"System-wide purge completed for {count} services"}
@@ -347,14 +349,16 @@ async def trigger_global_purge(
     from app.services.notifier import trigger_retention_webhooks
 
     for service in user_services:
-        retention = service.get("retention_days", 30)
-        deleted_count = await pg_manager.purge_old_logs(service["name"], retention)
+        retention_minutes = service.get("retention_minutes")
+        if retention_minutes is None:
+            retention_minutes = service.get("retention_days", 30) * 1440
+        deleted_count = await pg_manager.purge_old_logs(service["name"], retention_minutes)
 
         webhooks_data = service.get("webhooks", [])
         if webhooks_data:
             webhooks = [WebhookConfig(**w) for w in webhooks_data]
             await trigger_retention_webhooks(
-                webhooks, service["name"], retention, deleted_count
+                webhooks, service["name"], retention_minutes, deleted_count
             )
         count += 1
 
