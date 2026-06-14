@@ -80,9 +80,25 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("Running in SERVERLESS MODE (Sync ingestion)")
 
-    # Always start retention worker task (will run whenever the process is active)
-    retention_task = asyncio.create_task(retention_worker())
-    logger.info("Background retention worker started")
+    # Start retention worker if we are not in a real serverless host (Vercel/Lambda)
+    import os
+
+    is_real_serverless = any(
+        env in os.environ
+        for env in [
+            "VERCEL",
+            "AWS_LAMBDA_FUNCTION_NAME",
+            "LAMBDA_TASK_ROOT",
+            "_HANDLER",
+        ]
+    )
+    if not is_real_serverless:
+        retention_task = asyncio.create_task(retention_worker())
+        logger.info("Background retention worker started")
+    else:
+        logger.info(
+            "Real serverless host detected. Background retention worker disabled."
+        )
 
     logger.info("Application started")
     yield
