@@ -125,10 +125,10 @@ async def send_webhook_request(url: str, logs: List[Dict[str, Any]]):
 async def trigger_retention_webhooks(
     webhooks: List[WebhookConfig],
     service_name: str,
-    retention_days: int,
+    retention_minutes: int,
     deleted_count: int,
 ):
-    if not webhooks:
+    if not webhooks or deleted_count <= 0:
         return
 
     for webhook in webhooks:
@@ -142,25 +142,30 @@ async def trigger_retention_webhooks(
         # Trigger retention webhook delivery
         if settings.is_serverless:
             await send_retention_webhook_request(
-                webhook.url, service_name, retention_days, deleted_count
+                webhook.url, service_name, retention_minutes, deleted_count
             )
         else:
             asyncio.create_task(
                 send_retention_webhook_request(
-                    webhook.url, service_name, retention_days, deleted_count
+                    webhook.url, service_name, retention_minutes, deleted_count
                 )
             )
 
 
 async def send_retention_webhook_request(
-    url: str, service_name: str, retention_days: int, deleted_count: int
+    url: str, service_name: str, retention_minutes: int, deleted_count: int
 ):
     try:
+        if retention_minutes >= 1440 and retention_minutes % 1440 == 0:
+            policy_str = f"{retention_minutes // 1440} days"
+        else:
+            policy_str = f"{retention_minutes} minutes"
+
         # Default generic payload
         payload: Dict[str, Any] = {
             "event": "log_retention",
             "service": service_name,
-            "retention_days": retention_days,
+            "retention_minutes": retention_minutes,
             "deleted_count": deleted_count,
             "timestamp": datetime.utcnow().isoformat() + "Z",
         }
@@ -176,7 +181,7 @@ async def send_retention_webhook_request(
                         "fields": [
                             {
                                 "name": "Retention Policy",
-                                "value": f"{retention_days} days",
+                                "value": policy_str,
                                 "inline": True,
                             },
                             {
@@ -195,7 +200,7 @@ async def send_retention_webhook_request(
         # Slack Specific Formatting
         elif "hooks.slack.com/services" in url:
             payload = {
-                "text": f"🧹 *Velicor Retention*: Purged {deleted_count:,} logs for service `{service_name}` (older than {retention_days} days)",
+                "text": f"🧹 *Velicor Retention*: Purged {deleted_count:,} logs for service `{service_name}` (older than {policy_str})",
                 "blocks": [
                     {
                         "type": "section",
@@ -209,7 +214,7 @@ async def send_retention_webhook_request(
                         "fields": [
                             {
                                 "type": "mrkdwn",
-                                "text": f"*Retention Policy:* {retention_days} days",
+                                "text": f"*Retention Policy:* {policy_str}",
                             },
                             {
                                 "type": "mrkdwn",
