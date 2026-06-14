@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List
+from pydantic import BaseModel, Field, model_validator
+from typing import Optional, List, Any
 from datetime import datetime
 
 
@@ -15,7 +15,20 @@ class WebhookConfig(BaseModel):
 class ServiceBase(BaseModel):
     name: str
     retention_days: int = 30
+    retention_minutes: int = 43200
     webhooks: List[WebhookConfig] = []
+
+    @model_validator(mode="before")
+    @classmethod
+    def sync_retention_before(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            days = data.get("retention_days")
+            minutes = data.get("retention_minutes")
+            if minutes is not None:
+                data["retention_days"] = max(1, minutes // 1440)
+            elif days is not None:
+                data["retention_minutes"] = days * 1440
+        return data
 
 
 class ServiceCreate(ServiceBase):
@@ -24,7 +37,20 @@ class ServiceCreate(ServiceBase):
 
 class ServiceUpdate(BaseModel):
     retention_days: Optional[int] = None
+    retention_minutes: Optional[int] = None
     webhooks: Optional[List[WebhookConfig]] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def sync_retention_before(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            days = data.get("retention_days")
+            minutes = data.get("retention_minutes")
+            if minutes is not None:
+                data["retention_days"] = max(1, minutes // 1440)
+            elif days is not None:
+                data["retention_minutes"] = days * 1440
+        return data
 
 
 class ServiceInDB(ServiceBase):

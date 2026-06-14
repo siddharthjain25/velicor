@@ -1,4 +1,3 @@
-<?xml version='1.0' encoding='utf-8'?>
 <mxfile host="Electron">
   <diagram name="Velicor Architecture" id="fpXKoFl3D9RPaPYoSICN">
     <mxGraphModel dx="1710" dy="788" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
@@ -6,7 +5,7 @@
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
         <mxCell id="nF8YWoamKlxkY7NQbO7J-1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=2;fontSize=14;fontStyle=1;fillColor=#e7f5ff;strokeColor=#1c7ed6;fontColor=#0b7285;" value="Microservices / SDKs&lt;br/&gt;(Python, Node.js)" vertex="1">
-          <mxGeometry height="80" width="160" x="120" y="860" as="geometry" />
+          <mxGeometry height="80" width="160" x="10" y="880" as="geometry" />
         </mxCell>
         <mxCell id="nF8YWoamKlxkY7NQbO7J-2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=2;fontSize=14;fontStyle=1;fillColor=#e3fafc;strokeColor=#0c8599;fontColor=#0b7285;" value="Velicor API Server&lt;br/&gt;(FastAPI / PyOTP 2FA)&lt;br/&gt;- 2FA challenge on delete&lt;br/&gt;- Password update verification&lt;br/&gt;- Backup codes generation &amp;amp; self-reset" vertex="1">
           <mxGeometry height="120" width="180" x="240" y="710" as="geometry" />
@@ -33,10 +32,10 @@
           <mxGeometry height="80" width="180" x="1250" y="570" as="geometry" />
         </mxCell>
         <mxCell id="nF8YWoamKlxkY7NQbO7J-10" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=2;fontSize=14;fontStyle=1;fillColor=#fff5f5;strokeColor=#c92a2a;fontColor=#c92a2a;" value="Webhook Notifier&lt;br/&gt;(Alerting Service)" vertex="1">
-          <mxGeometry height="80" width="180" x="420" y="860" as="geometry" />
+          <mxGeometry height="80" width="180" x="240" y="880" as="geometry" />
         </mxCell>
         <mxCell id="nF8YWoamKlxkY7NQbO7J-11" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=2;fontSize=14;fontStyle=1;fillColor=#ffe8cc;strokeColor=#d9480f;fontColor=#d9480f;" value="Alert Channels&lt;br/&gt;(Slack, Discord,&lt;br/&gt;custom endpoints)" vertex="1">
-          <mxGeometry height="80" width="180" x="760" y="860" as="geometry" />
+          <mxGeometry height="80" width="180" x="610" y="880" as="geometry" />
         </mxCell>
         <mxCell id="nF8YWoamKlxkY7NQbO7J-12" edge="1" parent="1" source="nF8YWoamKlxkY7NQbO7J-1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#495057;fontSize=12;fontColor=#495057;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" target="nF8YWoamKlxkY7NQbO7J-2" value="POST /api/v1/ingest">
           <mxGeometry relative="1" as="geometry" />
