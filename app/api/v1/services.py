@@ -301,13 +301,22 @@ async def update_webhook(
     return {"status": "updated"}
 
 
-@router.post("/purge-all", status_code=status.HTTP_200_OK)
+@router.api_route("/purge-all", methods=["GET", "POST"], status_code=status.HTTP_200_OK)
 async def trigger_global_purge(
     authorization: Annotated[Optional[str], Header()] = None,
     x_cron_secret: Annotated[Optional[str], Header()] = None,
 ):
     # 1. Check for Cron Secret (System-wide purge)
-    if settings.CRON_SECRET and x_cron_secret == settings.CRON_SECRET:
+    cron_secret_matched = False
+    if settings.CRON_SECRET:
+        if x_cron_secret == settings.CRON_SECRET:
+            cron_secret_matched = True
+        elif authorization and authorization.startswith("Bearer "):
+            token = authorization.split(" ")[1]
+            if token == settings.CRON_SECRET:
+                cron_secret_matched = True
+
+    if cron_secret_matched:
         all_services = await mongo_manager.db.services.find({}).to_list(None)
         count = 0
         from app.models.service import WebhookConfig
