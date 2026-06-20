@@ -386,3 +386,51 @@ async def live_tail(websocket: WebSocket, api_key: Optional[str] = None):
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket, service_name)
+
+
+@router.post("/maintenance/retention")
+async def trigger_retention(authorization: Optional[str] = Header(None)):
+    if settings.CRON_SECRET:
+        if not authorization or not authorization.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Unauthorized")
+        token = authorization.split(" ")[1]
+        if token != settings.CRON_SECRET:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+    db = mongo_manager.get_db()
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not connected")
+
+    from app.db.postgres import pg_manager
+    from app.models.service import WebhookConfig
+    from app.services.notifier import trigger_retention_webhooks
+
+    services_cursor = db.services.find({})
+    results = {}
+
+    async for service in services_cursor:
+        service_name = service.get("name")
+        retention_minutes = service.get("retention_minutes")
+        if retention_minutes is None:
+            retention_minutes = service.get("retention_days", 30) * 1440
+
+        try:
+            deleted_count = await pg_manager.purge_old_logs(
+                service_name, retention_minutes
+            )
+            results[service_name] = deleted_count
+
+            webhooks_data = service.get("webhooks", [])
+            if webhooks_data and deleted_count > 0:
+                webhooks = [WebhookConfig(**w) for w in webhooks_data]
+                await trigger_retention_webhooks(
+                    webhooks=webhooks,
+                    service_name=service_name,
+                    retention_minutes=retention_minutes,
+                    deleted_count=deleted_count,
+                )
+        except Exception as e:
+            logger.error(f"Error processing retention for {service_name}: {e}")
+            results[service_name] = -1
+
+    return {"status": "success", "purged": results}

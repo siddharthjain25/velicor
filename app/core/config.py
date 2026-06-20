@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 1 week
 
     SERVERLESS_MODE: bool = False
+    ENVIRONMENT: str = "dev"
 
     @property
     def is_serverless(self) -> bool:
