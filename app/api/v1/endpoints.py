@@ -208,63 +208,6 @@ ingestion_queue: Any = None
 LAST_RETENTION_RUNS: Dict[str, float] = {}
 
 
-async def run_retention_if_needed(service_name: str, service: dict):
-    # Only run in serverless mode
-    if not settings.is_serverless:
-        return
-
-    redis_client = redis_manager.client
-    now = time.time()
-    cache_key = f"velicor:last_retention_run:{service_name}"
-
-    should_run = True
-    if redis_client:
-        try:
-            last_run = await redis_client.get(cache_key)
-            if last_run and (now - float(last_run)) < 60:
-                should_run = False
-            else:
-                await redis_client.set(cache_key, str(now), ex=60)
-        except Exception as e:
-            logger.error(f"Error checking redis for retention throttle: {e}")
-    else:
-        # Local memory fallback if Redis is not available
-        global LAST_RETENTION_RUNS
-        last_run = LAST_RETENTION_RUNS.get(service_name, 0.0)
-        if (now - last_run) < 60:
-            should_run = False
-        else:
-            LAST_RETENTION_RUNS[service_name] = now
-
-    if should_run:
-        logger.info(
-            f"Ingestion-triggered retention check running for service {service_name}"
-        )
-        try:
-            from app.db.postgres import pg_manager
-
-            retention_minutes = service.get("retention_minutes")
-            if retention_minutes is None:
-                retention_minutes = service.get("retention_days", 30) * 1440
-
-            deleted_count = await pg_manager.purge_old_logs(
-                service_name, retention_minutes
-            )
-
-            # Send webhook notification if configured and logs were deleted
-            webhooks_data = service.get("webhooks", [])
-            if webhooks_data and deleted_count > 0:
-                from app.models.service import WebhookConfig
-                from app.services.notifier import trigger_retention_webhooks
-
-                webhooks = [WebhookConfig(**w) for w in webhooks_data]
-                await trigger_retention_webhooks(
-                    webhooks, service_name, retention_minutes, deleted_count
-                )
-        except Exception as e:
-            logger.error(f"Ingestion-triggered retention error for {service_name}: {e}")
-
-
 def set_queue(q: Any):
     global ingestion_queue
     ingestion_queue = q
@@ -321,10 +264,6 @@ async def ingest_logs(
 
         try:
             await pg_manager.insert_batch(valid_logs)
-            # Trigger ingestion-based retention check in background
-            background_tasks.add_task(
-                run_retention_if_needed, verified_service_name, service
-            )
             return {"status": "created", "processed": len(valid_logs)}
         except Exception as e:
             logger.error(f"Serverless flush failed: {e}")
