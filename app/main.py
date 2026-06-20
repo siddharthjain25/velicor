@@ -131,7 +131,16 @@ async def lifespan(app: FastAPI):
             logger.info("Serverless: Skipping disconnect to allow connection reuse")
 
 
-app = FastAPI(title="Log Ingestion & Search Layer", lifespan=lifespan)
+if settings.ENVIRONMENT == "dev":
+    app = FastAPI(title="Log Ingestion & Search Layer", lifespan=lifespan)
+else:
+    app = FastAPI(
+        title="Log Ingestion & Search Layer",
+        lifespan=lifespan,
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+    )
 
 
 @app.exception_handler(StarletteHTTPException)
