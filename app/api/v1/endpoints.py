@@ -420,7 +420,17 @@ async def trigger_retention(authorization: Optional[str] = Header(None)):
             )
             results[service_name] = deleted_count
 
-            webhooks_data = service.get("webhooks", [])
+            service_webhooks = service.get("webhooks", [])
+            user_webhooks = []
+            if "user_id" in service:
+                from bson import ObjectId
+
+                user = await db.users.find_one({"_id": ObjectId(service["user_id"])})
+                if user:
+                    user_webhooks = user.get("webhooks", [])
+
+            webhooks_data = service_webhooks + user_webhooks
+
             if webhooks_data and deleted_count > 0:
                 webhooks = [WebhookConfig(**w) for w in webhooks_data]
                 await trigger_retention_webhooks(
