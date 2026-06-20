@@ -142,7 +142,7 @@ class PostgresManager:
             CREATE TABLE IF NOT EXISTS {table_name} (
                 id SERIAL,
                 timestamp TIMESTAMPTZ NOT NULL,
-                level VARCHAR(10) NOT NULL,
+                level VARCHAR(50) NOT NULL,
                 status_code INTEGER,
                 message TEXT,
                 metadata JSONB,

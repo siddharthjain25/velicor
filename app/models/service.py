@@ -17,6 +17,7 @@ class ServiceBase(BaseModel):
     retention_days: int = 30
     retention_minutes: int = 43200
     webhooks: List[WebhookConfig] = []
+    custom_severities: List[str] = []
 
     @model_validator(mode="before")
     @classmethod
@@ -39,6 +40,7 @@ class ServiceUpdate(BaseModel):
     retention_days: Optional[int] = None
     retention_minutes: Optional[int] = None
     webhooks: Optional[List[WebhookConfig]] = None
+    custom_severities: Optional[List[str]] = None
 
     @model_validator(mode="before")
     @classmethod
