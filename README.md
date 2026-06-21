@@ -7,20 +7,23 @@ Velicor is a modern, lightweight log ingestion proxy designed for microservice e
 ## ✨ Key Features
 
 *   **⚡ High-Speed Ingestion**: Optimized for tens of thousands of logs per second using async batching and connection pooling.
+*   **🧊 Cold Storage Archival**: Automatic lifecycle management mathematically drops expired partitions from PostgreSQL, dynamically packs them into highly compressed `.parquet` files via DuckDB, and safely offloads them to AWS S3.
 *   **📊 Real-time Analytics**: Instant visibility into log levels, error rates, and activity "heartbeats" via a responsive dashboard.
 *   **🚨 Service-Scoped Alerting**: Configurable Webhooks for Slack, Discord, or custom endpoints. Isolate alerts to specific services using searchable multi-select filters.
 *   **🛡️ Dynamic Isolation**: Each service gets its own PostgreSQL table with automatic schema management and GIN/FTS indexing.
 *   **⚙️ Fleet Customizations**: Inline retention limits adjustment (1 to 365 days) and API key rotation directly within service card headers.
 *   **☁️ Serverless Aware**: Special optimizations for Vercel/AWS Lambda to prevent background task freezing and database connection exhaustion.
-*   **📱 Fully Responsive**: A modern React-based UI that works perfectly on desktop and mobile.
+*   **📱 Fully Responsive**: A modern React-based UI that works perfectly on desktop and mobile, integrating seamlessly with both Hot (PostgreSQL) and Cold (S3) storage engines.
 
 ---
 
 ## 🛠️ Tech Stack
 
--   **Backend**: FastAPI (Python 3.12+), AsyncPG, Motor (MongoDB Driver), Redis-py (Async Redis client).
--   **Database / Cache**: 
-    -   **PostgreSQL**: High-speed log storage with Full-Text Search.
+-   **Backend**: FastAPI (Python 3.12+), AsyncPG, Motor (MongoDB Driver), Redis-py (Async Redis client), DuckDB, Boto3.
+-   **Database / Cache / Storage**: 
+    -   **PostgreSQL**: High-speed hot log storage with Full-Text Search.
+    -   **AWS S3**: Infinite cold storage for historical logs in compressed Parquet format.
+    -   **DuckDB**: Next-generation embedded analytical engine for instant SQL queries directly on S3 Parquet archives.
     -   **MongoDB**: Metadata management for services, users, and webhooks.
     -   **Redis**: Distributed caching (API Key lookup) and real-time Pub/Sub live-tail log synchronization.
 -   **Frontend**: React 19, TypeScript, Tailwind CSS 4, Lucide React.
