@@ -10,5 +10,11 @@
       "src": "/(.*)",
       "dest": "index.py"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/v1/maintenance/retention",
+      "schedule": "0 0 * * *"
+    }
   ]
 }

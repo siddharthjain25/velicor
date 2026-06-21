@@ -16,7 +16,11 @@ class MongoManager:
             return
 
         if not self.client:
-            self.client = AsyncIOMotorClient(settings.MONGO_URI)
+            pool_kwargs = {}
+            if settings.SERVERLESS_MODE:
+                pool_kwargs = {"maxPoolSize": 10, "minPoolSize": 0}
+            
+            self.client = AsyncIOMotorClient(settings.MONGO_URI, **pool_kwargs)
             self.db = self.client[settings.MONGO_DB_NAME]
 
             try:

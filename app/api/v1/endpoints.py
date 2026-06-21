@@ -327,7 +327,7 @@ async def live_tail(websocket: WebSocket, api_key: Optional[str] = None):
         manager.disconnect(websocket, service_name)
 
 
-@router.post("/maintenance/retention")
+@router.api_route("/maintenance/retention", methods=["GET", "POST"])
 async def trigger_retention(authorization: Optional[str] = Header(None)):
     if settings.CRON_SECRET:
         if not authorization or not authorization.startswith("Bearer "):
