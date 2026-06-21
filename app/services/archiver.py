@@ -128,7 +128,7 @@ async def search_archive(
         # Fix missing HOME dir in serverless by pointing it to /tmp
         tmp_dir = tempfile.gettempdir()
         con.execute(f"SET home_directory='{tmp_dir}';")
-        
+
         # Load AWS extensions
         con.execute("INSTALL httpfs; LOAD httpfs;")
 
