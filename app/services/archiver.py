@@ -70,6 +70,7 @@ async def archive_partition(
     con = None
     try:
         con = duckdb.connect()
+        con.execute(f"SET home_directory='{tmp_dir}';")
         con.execute(
             f"COPY (SELECT * FROM read_json_auto('{local_jsonl_path}')) TO '{local_parquet_path}' (FORMAT PARQUET)"  # nosec B608
         )
@@ -124,6 +125,10 @@ async def search_archive(
     con = None
     try:
         con = duckdb.connect()
+        # Fix missing HOME dir in serverless by pointing it to /tmp
+        tmp_dir = tempfile.gettempdir()
+        con.execute(f"SET home_directory='{tmp_dir}';")
+        
         # Load AWS extensions
         con.execute("INSTALL httpfs; LOAD httpfs;")
 
