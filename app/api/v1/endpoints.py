@@ -307,6 +307,36 @@ async def search_logs(
     return results
 
 
+@router.get("/search/archive")
+async def search_archive_logs(
+    start_ts: str,
+    end_ts: str,
+    level: Optional[str] = None,
+    keyword: Optional[str] = None,
+    limit: int = 100,
+    x_api_key: Annotated[Optional[str], Header()] = None,
+):
+    """Query cold storage S3 archives directly using DuckDB."""
+    if not x_api_key:
+        raise HTTPException(status_code=401, detail="Missing API Key")
+
+    service = await get_service_from_key(x_api_key)
+    if not service:
+        raise HTTPException(status_code=403, detail="Invalid API Key")
+
+    from app.services.archiver import search_archive
+
+    results = await search_archive(
+        service_name=service["name"],
+        start_ts=start_ts,
+        end_ts=end_ts,
+        level=level,
+        keyword=keyword,
+        limit=limit,
+    )
+    return results
+
+
 @router.websocket("/live")
 async def live_tail(websocket: WebSocket, api_key: Optional[str] = None):
     if not api_key:

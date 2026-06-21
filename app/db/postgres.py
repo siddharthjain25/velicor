@@ -391,6 +391,11 @@ class PostgresManager:
                         )
                         deleted_count += count or 0
 
+                        # Archive to S3 before dropping
+                        partition_date_str = f"{p_year:04d}-{p_month:02d}-{p_day:02d}"
+                        from app.services.archiver import archive_partition
+                        await archive_partition(conn, p_name, service_name, partition_date_str)
+
                         await conn.execute(f"DROP TABLE {p_name}")
                         logger.info(f"Dropped expired log partition table: {p_name}")
 
