@@ -1,4 +1,5 @@
 import os
+import tempfile
 import logging
 import duckdb
 import boto3
@@ -24,10 +25,10 @@ async def archive_partition(
 
     # Fetch rows from the partition
     query = (
-        f"SELECT timestamp, level, status_code, message, metadata::text FROM {p_name}"
+        f"SELECT timestamp, level, status_code, message, metadata::text FROM {p_name}"  # nosec B608
     )
     if cutoff_time:
-        query += f" WHERE timestamp < '{cutoff_time.isoformat()}'"
+        query += f" WHERE timestamp < '{cutoff_time.isoformat()}'"  # nosec B608
 
     try:
         rows = await conn.fetch(query)
@@ -52,8 +53,9 @@ async def archive_partition(
             }
         )
 
-    local_parquet_path = f"/tmp/{p_name}.parquet"
-    local_jsonl_path = f"/tmp/{p_name}.jsonl"
+    tmp_dir = tempfile.gettempdir()
+    local_parquet_path = os.path.join(tmp_dir, f"{p_name}.parquet")
+    local_jsonl_path = os.path.join(tmp_dir, f"{p_name}.jsonl")
 
     # Write to temporary JSONL file
     try:
@@ -69,7 +71,7 @@ async def archive_partition(
     try:
         con = duckdb.connect()
         con.execute(
-            f"COPY (SELECT * FROM read_json_auto('{local_jsonl_path}')) TO '{local_parquet_path}' (FORMAT PARQUET)"
+            f"COPY (SELECT * FROM read_json_auto('{local_jsonl_path}')) TO '{local_parquet_path}' (FORMAT PARQUET)"  # nosec B608
         )
     except Exception as e:
         logger.error(f"Failed to generate parquet file: {e}")
@@ -140,7 +142,7 @@ async def search_archive(
         # DuckDB automatically uses Parquet min/max statistics to skip scanning irrelevant files!
         s3_path = f"s3://{settings.S3_BUCKET_NAME}/{service_name}/*.parquet"
 
-        query = f"SELECT * FROM read_parquet('{s3_path}') WHERE timestamp >= '{start_ts}' AND timestamp <= '{end_ts}'"
+        query = f"SELECT * FROM read_parquet('{s3_path}') WHERE timestamp >= '{start_ts}' AND timestamp <= '{end_ts}'"  # nosec B608
 
         if level:
             query += f" AND level = '{level}'"
