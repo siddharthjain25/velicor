@@ -96,18 +96,49 @@ npm run dev
 
 ## 📡 SDK & Integration
 
-### Python
-```python
-import requests
-import time
+### Python (Production Ready)
+For persistent servers, use a background `QueueListener` to prevent blocking the event loop. For serverless environments (like Vercel or AWS Lambda) where background threads freeze, use synchronous logging with a strict, short timeout to guarantee delivery without sacrificing your API response latency.
 
-def log_to_velicor(level, message, metadata=None):
-    payload = {
-        "level": level, "message": message, "timestamp": time.time(),
-        "service_name": "my-service", "metadata": metadata or {}
-    }
-    requests.post("https://your-velicor.com/api/v1/ingest", 
-                  json=payload, headers={"x-api-key": "YOUR_KEY"})
+```python
+import logging
+import requests
+from logging.handlers import QueueHandler, QueueListener
+import queue
+import atexit
+
+class VelicorHandler(logging.Handler):
+    def __init__(self, url, api_key):
+        super().__init__()
+        self.url = url
+        self.api_key = api_key
+        self.session = requests.Session()
+        
+    def emit(self, record):
+        payload = {"level": record.levelname, "message": self.format(record)}
+        headers = {"x-api-key": self.api_key}
+        
+        # In serverless environments, use a short 0.5s timeout.
+        # In persistent environments, the queue thread can handle longer timeouts.
+        timeout = 0.5 if IS_SERVERLESS else 2.0 
+        
+        try:
+            self.session.post(f"{self.url}/api/v1/ingest", json=payload, headers=headers, timeout=timeout)
+        except Exception:
+            pass # Handle silently to avoid crashing the app
+
+# Setup
+velicor_handler = VelicorHandler("https://velicor.vercel.app", "YOUR_KEY")
+root_logger = logging.getLogger()
+
+if IS_SERVERLESS:
+    root_logger.addHandler(velicor_handler)
+else:
+    log_queue = queue.Queue(-1)
+    queue_handler = QueueHandler(log_queue)
+    queue_listener = QueueListener(log_queue, velicor_handler)
+    queue_listener.start()
+    root_logger.addHandler(queue_handler)
+    atexit.register(queue_listener.stop)
 ```
 
 ### Node.js
