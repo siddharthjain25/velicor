@@ -24,6 +24,8 @@ dependencies = [
     "pyotp",
     "pytest",
     "httpx",
+    "boto3>=1.28.0",
+    "duckdb>=0.8.0",
 ]
 
 [build-system]
