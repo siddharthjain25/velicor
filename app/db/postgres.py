@@ -394,10 +394,14 @@ class PostgresManager:
                         # Archive to S3 before dropping
                         partition_date_str = f"{p_year:04d}-{p_month:02d}-{p_day:02d}"
                         from app.services.archiver import archive_partition
-                        await archive_partition(conn, p_name, service_name, partition_date_str)
+                        archived = await archive_partition(conn, p_name, service_name, partition_date_str)
 
-                        await conn.execute(f"DROP TABLE {p_name}")
-                        logger.info(f"Dropped expired log partition table: {p_name}")
+                        if archived:
+                            await conn.execute(f"DROP TABLE {p_name}")
+                            logger.info(f"Dropped expired log partition table: {p_name}")
+                        else:
+                            logger.error(f"Skipping DROP TABLE for {p_name} because archival failed.")
+                            continue
 
                         # Remove from local partition cache
                         cache_key = p_name.replace(f"{table_name}_", f"{table_name}:")

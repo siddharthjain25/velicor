@@ -45,20 +45,32 @@ async def archive_partition(
             }
         )
 
-    local_path = f"/tmp/{p_name}.parquet"
-
+    local_parquet_path = f"/tmp/{p_name}.parquet"
+    local_jsonl_path = f"/tmp/{p_name}.jsonl"
+    
+    # Write to temporary JSONL file
+    try:
+        with open(local_jsonl_path, 'w') as f:
+            for item in data:
+                f.write(json.dumps(item) + "\n")
+    except Exception as e:
+        logger.error(f"Failed to write temporary JSONL: {e}")
+        return False
+    
     # Write to Parquet using DuckDB
     con = None
     try:
         con = duckdb.connect()
-        con.execute(f"COPY (SELECT * FROM data) TO '{local_path}' (FORMAT PARQUET)")
+        con.execute(f"COPY (SELECT * FROM read_json_auto('{local_jsonl_path}')) TO '{local_parquet_path}' (FORMAT PARQUET)")
     except Exception as e:
         logger.error(f"Failed to generate parquet file: {e}")
         return False
     finally:
         if con:
             con.close()
-
+        if os.path.exists(local_jsonl_path):
+            os.remove(local_jsonl_path)
+        
     # Upload to S3
     s3_key = f"{service_name}/{partition_date_str}.parquet"
     try:
@@ -68,16 +80,16 @@ async def archive_partition(
             aws_secret_access_key=settings.S3_SECRET_ACCESS_KEY,
             region_name=settings.S3_REGION_NAME,
         )
-        s3.upload_file(local_path, settings.S3_BUCKET_NAME, s3_key)
+        s3.upload_file(local_parquet_path, settings.S3_BUCKET_NAME, s3_key)
         logger.info(
             f"Successfully archived {p_name} to s3://{settings.S3_BUCKET_NAME}/{s3_key}"
         )
     except Exception as e:
-        logger.error(f"Failed to upload {local_path} to S3: {e}")
+        logger.error(f"Failed to upload {local_parquet_path} to S3: {e}")
         return False
     finally:
-        if os.path.exists(local_path):
-            os.remove(local_path)
+        if os.path.exists(local_parquet_path):
+            os.remove(local_parquet_path)
 
     return True
 
