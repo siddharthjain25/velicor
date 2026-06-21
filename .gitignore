@@ -8,3 +8,5 @@ backend.log
 storage/
 .env.example
 .$velicor.drawio.bkp
+test_archiver.py
+test_parquet.py
