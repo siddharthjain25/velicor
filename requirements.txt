@@ -18,3 +18,5 @@ pyotp
 pytest
 httpx
 
+boto3==1.43.28
+duckdb==1.5.4

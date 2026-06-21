@@ -83,7 +83,7 @@ async def lifespan(app: FastAPI):
     # Start retention worker if we are not in a real serverless host (Vercel/Lambda)
     import os
 
-    is_real_serverless = any(
+    is_real_serverless = settings.SERVERLESS_MODE or any(
         env in os.environ
         for env in [
             "VERCEL",

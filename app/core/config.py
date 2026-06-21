@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 1 week
 
+    # S3 Archival
+    S3_BUCKET_NAME: Optional[str] = None
+    S3_ACCESS_KEY_ID: Optional[str] = None
+    S3_SECRET_ACCESS_KEY: Optional[str] = None
+    S3_REGION_NAME: str = "us-east-1"
+
     SERVERLESS_MODE: bool = False
     ENVIRONMENT: str = "dev"
 
