@@ -20,9 +20,9 @@ class Settings(BaseSettings):
 
     # S3 Archival
     S3_BUCKET_NAME: Optional[str] = None
-    AWS_ACCESS_KEY_ID: Optional[str] = None
-    AWS_SECRET_ACCESS_KEY: Optional[str] = None
-    AWS_REGION: str = "us-east-1"
+    S3_ACCESS_KEY_ID: Optional[str] = None
+    S3_SECRET_ACCESS_KEY: Optional[str] = None
+    S3_REGION_NAME: str = "us-east-1"
 
     SERVERLESS_MODE: bool = False
     ENVIRONMENT: str = "dev"
