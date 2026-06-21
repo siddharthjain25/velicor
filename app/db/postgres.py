@@ -394,13 +394,20 @@ class PostgresManager:
                         # Archive to S3 before dropping
                         partition_date_str = f"{p_year:04d}-{p_month:02d}-{p_day:02d}"
                         from app.services.archiver import archive_partition
-                        archived = await archive_partition(conn, p_name, service_name, partition_date_str)
+
+                        archived = await archive_partition(
+                            conn, p_name, service_name, partition_date_str
+                        )
 
                         if archived:
                             await conn.execute(f"DROP TABLE {p_name}")
-                            logger.info(f"Dropped expired log partition table: {p_name}")
+                            logger.info(
+                                f"Dropped expired log partition table: {p_name}"
+                            )
                         else:
-                            logger.error(f"Skipping DROP TABLE for {p_name} because archival failed.")
+                            logger.error(
+                                f"Skipping DROP TABLE for {p_name} because archival failed."
+                            )
                             continue
 
                         # Remove from local partition cache
@@ -408,17 +415,29 @@ class PostgresManager:
                         if cache_key in self.known_partitions:
                             self.known_partitions.remove(cache_key)
                     else:
-                        # Partially expired partition, delete old rows using a query
-                        delete_query = f"""
-                            DELETE FROM {p_name} 
-                            WHERE timestamp < $1
-                        """  # nosec B608
-                        result = await conn.execute(delete_query, cutoff_time)
-                        if result and result.startswith("DELETE "):
-                            try:
-                                deleted_count += int(result.split(" ")[1])
-                            except (IndexError, ValueError):
-                                pass
+                        # Partially expired partition, archive then delete old rows
+                        partition_date_str = f"{p_year:04d}-{p_month:02d}-{p_day:02d}"
+                        from app.services.archiver import archive_partition
+
+                        archived = await archive_partition(
+                            conn, p_name, service_name, partition_date_str, cutoff_time
+                        )
+
+                        if archived:
+                            delete_query = f"""
+                                DELETE FROM {p_name} 
+                                WHERE timestamp < $1
+                            """  # nosec B608
+                            result = await conn.execute(delete_query, cutoff_time)
+                            if result and result.startswith("DELETE "):
+                                try:
+                                    deleted_count += int(result.split(" ")[1])
+                                except (IndexError, ValueError):
+                                    pass
+                        else:
+                            logger.error(
+                                f"Skipping DELETE for {p_name} because partial archival failed."
+                            )
                 elif p_name == f"{table_name}_default":
                     # Clean up old logs from the default partition (fallback safety net)
                     delete_query = f"""

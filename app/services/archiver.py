@@ -11,17 +11,24 @@ logger = logging.getLogger(__name__)
 
 
 async def archive_partition(
-    conn, p_name: str, service_name: str, partition_date_str: str
+    conn,
+    p_name: str,
+    service_name: str,
+    partition_date_str: str,
+    cutoff_time: Optional[datetime] = None,
 ) -> bool:
     if not settings.S3_BUCKET_NAME:
         return False
 
     logger.info(f"Archiving partition {p_name} to S3...")
 
-    # Fetch all rows from the partition
+    # Fetch rows from the partition
     query = (
         f"SELECT timestamp, level, status_code, message, metadata::text FROM {p_name}"
     )
+    if cutoff_time:
+        query += f" WHERE timestamp < '{cutoff_time.isoformat()}'"
+
     try:
         rows = await conn.fetch(query)
     except Exception as e:
@@ -47,21 +54,23 @@ async def archive_partition(
 
     local_parquet_path = f"/tmp/{p_name}.parquet"
     local_jsonl_path = f"/tmp/{p_name}.jsonl"
-    
+
     # Write to temporary JSONL file
     try:
-        with open(local_jsonl_path, 'w') as f:
+        with open(local_jsonl_path, "w") as f:
             for item in data:
                 f.write(json.dumps(item) + "\n")
     except Exception as e:
         logger.error(f"Failed to write temporary JSONL: {e}")
         return False
-    
+
     # Write to Parquet using DuckDB
     con = None
     try:
         con = duckdb.connect()
-        con.execute(f"COPY (SELECT * FROM read_json_auto('{local_jsonl_path}')) TO '{local_parquet_path}' (FORMAT PARQUET)")
+        con.execute(
+            f"COPY (SELECT * FROM read_json_auto('{local_jsonl_path}')) TO '{local_parquet_path}' (FORMAT PARQUET)"
+        )
     except Exception as e:
         logger.error(f"Failed to generate parquet file: {e}")
         return False
@@ -70,9 +79,13 @@ async def archive_partition(
             con.close()
         if os.path.exists(local_jsonl_path):
             os.remove(local_jsonl_path)
-        
+
     # Upload to S3
-    s3_key = f"{service_name}/{partition_date_str}.parquet"
+    if cutoff_time:
+        s3_key = f"{service_name}/{partition_date_str}_{int(cutoff_time.timestamp())}.parquet"
+    else:
+        s3_key = f"{service_name}/{partition_date_str}.parquet"
+
     try:
         s3 = boto3.client(
             "s3",
@@ -149,7 +162,7 @@ async def search_archive(
             # Parse metadata back to dict
             try:
                 item["metadata"] = json.loads(item.get("metadata", "{}"))
-            except:
+            except Exception:
                 item["metadata"] = {}
             formatted.append(item)
 
