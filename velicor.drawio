@@ -127,6 +127,21 @@
         <mxCell id="velicor-edge-retention-postgres" edge="1" parent="1" source="velicor-retention" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#495057;fontSize=12;fontColor=#495057;exitX=1;exitY=0.5;entryX=0.5;entryY=0;" target="nF8YWoamKlxkY7NQbO7J-7" value="Purge Old Logs">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
+        <mxCell id="velicor-duckdb" parent="1" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;strokeWidth=2;fontSize=14;fontStyle=1;fillColor=#fff9db;strokeColor=#f59f00;fontColor=#d9480f;" value="DuckDB Archiver&lt;br/&gt;- SQL to Parquet Export" vertex="1">
+          <mxGeometry height="80" width="180" x="1400" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="velicor-s3" parent="1" style="shape=cylinder;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;strokeWidth=2;fontSize=14;fontStyle=1;fillColor=#e7f5ff;strokeColor=#339af0;fontColor=#1864ab;" value="AWS S3 Cold Storage&lt;br/&gt;- `.parquet` Archives" vertex="1">
+          <mxGeometry height="80" width="180" x="1680" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="velicor-edge-retention-duckdb" edge="1" parent="1" source="velicor-retention" target="velicor-duckdb" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#495057;fontSize=12;fontColor=#495057;exitX=1;exitY=0.25;entryX=0;entryY=0.5;" value="Trigger Archival">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="velicor-edge-duckdb-postgres" edge="1" parent="1" source="velicor-duckdb" target="nF8YWoamKlxkY7NQbO7J-7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#495057;fontSize=12;fontColor=#495057;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" value="Query Raw Rows">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="velicor-edge-duckdb-s3" edge="1" parent="1" source="velicor-duckdb" target="velicor-s3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#495057;fontSize=12;fontColor=#495057;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" value="Upload Parquet">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
