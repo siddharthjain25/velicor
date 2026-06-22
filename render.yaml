@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: velicor-api
+    env: python
+    plan: starter
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.15"
+      - key: IS_SERVERLESS
+        value: "false"
+      
+      # Database Connections (Sync these manually in the Render Dashboard)
+      - key: POSTGRES_URL
+        sync: false
+      - key: MONGO_URI
+        sync: false
+      - key: REDIS_URL
+        sync: false
+        
+      # S3 Cold Storage (Sync manually in Render)
+      - key: S3_BUCKET_NAME
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: S3_REGION_NAME
+        sync: false
+        
+      # Secrets
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CRON_SECRET
+        generateValue: true

@@ -158,6 +158,19 @@ const logToVelicor = async (level, message, metadata = {}) => {
 
 ---
 
+## 🚀 Deployment
+
+Velicor is designed to run efficiently on persistent compute platforms to eliminate serverless cold-start latency. 
+
+### Deploying to Render
+1. Connect your GitHub repository to Render.
+2. Render will automatically detect the included `render.yaml` Blueprint.
+3. Apply the Blueprint. It will provision a Python Web Service.
+4. Go to the Render Dashboard and configure the missing environment variables (`POSTGRES_URL`, `MONGO_URI`, `REDIS_URL`, and S3 credentials).
+5. Deploy! Your ingest API will now respond in `<30ms`.
+
+---
+
 ## 🔒 Security
 
 -   **Service Isolation**: API Keys are scoped to specific services. One compromised key cannot access logs from another service.
