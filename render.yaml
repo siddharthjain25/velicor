@@ -9,7 +9,7 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.11.15"
-      - key: IS_SERVERLESS
+      - key: LOG_INGEST_SERVERLESS_MODE
         value: "false"
       
       # Database Connections (Sync these manually in the Render Dashboard)
