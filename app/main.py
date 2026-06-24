@@ -202,7 +202,7 @@ app.include_router(webhooks_router, prefix="/api/v1/webhooks")
 
 @app.get("/", include_in_schema=False)
 async def root_redirect():
-    return RedirectResponse(url="https://velicor-ui.vercel.app")
+    return RedirectResponse(url="https://velicor.vercel.app")
 
 
 @app.get("/health")
