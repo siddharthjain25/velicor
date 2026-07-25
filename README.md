@@ -135,7 +135,6 @@ class VelicorHandler(logging.Handler):
         except Exception:
             pass
 
-
 # Setup
 velicor_handler = VelicorHandler("https://velicor.vercel.app", "YOUR_KEY")
 root_logger = logging.getLogger()
