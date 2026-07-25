@@ -109,25 +109,32 @@ from logging.handlers import QueueHandler, QueueListener
 import queue
 import atexit
 
+
 class VelicorHandler(logging.Handler):
     def __init__(self, url, api_key):
         super().__init__()
         self.url = url
         self.api_key = api_key
         self.session = requests.Session()
-        
+
     def emit(self, record):
         payload = {"level": record.levelname, "message": self.format(record)}
         headers = {"x-api-key": self.api_key}
-        
+
         # In serverless environments, use a short 0.5s timeout.
         # In persistent environments, the queue thread can handle longer timeouts.
-        timeout = 0.5 if IS_SERVERLESS else 2.0 
-        
+        timeout = 0.5 if IS_SERVERLESS else 2.0
+
         try:
-            self.session.post(f"{self.url}/api/v1/ingest", json=payload, headers=headers, timeout=timeout)
+            self.session.post(
+                f"{self.url}/api/v1/ingest",
+                json=payload,
+                headers=headers,
+                timeout=timeout,
+            )
         except Exception:
-            pass # Handle silently to avoid crashing the app
+            pass  # Handle silently to avoid crashing the app
+
 
 # Setup
 velicor_handler = VelicorHandler("https://velicor.vercel.app", "YOUR_KEY")
