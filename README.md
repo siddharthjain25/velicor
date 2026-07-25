@@ -133,7 +133,7 @@ class VelicorHandler(logging.Handler):
                 timeout=timeout,
             )
         except Exception:
-            pass  # Handle silently to avoid crashing the app
+            pass
 
 
 # Setup
