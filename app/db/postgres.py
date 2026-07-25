@@ -242,6 +242,7 @@ class PostgresManager:
         status_code: Optional[int] = None,
         keyword: Optional[str] = None,
         limit: int = 100,
+        schema: str = "public",
     ):
         if not settings.POSTGRES_URL:
             return []
@@ -249,9 +250,10 @@ class PostgresManager:
         conn = await self.get_connection()
         try:
             table_name = self._get_table_name(service_name)
-            await self.ensure_table(table_name, conn)
+            full_table = f"{schema}.{table_name}"
+            # await self.ensure_table(table_name, conn) # Removed ensure_table to avoid creating tables in wrong schema during search
 
-            query = f"SELECT timestamp, level, status_code, message, metadata FROM {table_name} WHERE TRUE"  # nosec B608
+            query = f"SELECT timestamp, level, status_code, message, metadata FROM {full_table} WHERE TRUE"  # nosec B608
             args: List[Any] = []
             arg_idx = 1
 

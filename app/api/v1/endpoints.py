@@ -303,6 +303,7 @@ async def search_logs(
         status_code=status_code,
         keyword=keyword,
         limit=limit,
+        schema=service.get("db_schema", "public"),
     )
     return results
 
