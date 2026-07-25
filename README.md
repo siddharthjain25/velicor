@@ -133,8 +133,7 @@ class VelicorHandler(logging.Handler):
                 timeout=timeout,
             )
         except Exception:
-            pass  # Handle silently to avoid crashing the app
-
+            pass
 
 # Setup
 velicor_handler = VelicorHandler("https://velicor.vercel.app", "YOUR_KEY")
