@@ -41,5 +41,5 @@ ignore_missing_imports = true
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "BLE", "RET", "PL", "RUF"]
-ignore = ["E501", "PLR2004", "BLE001", "PLC0415", "RUF006", "PLR0912", "PLR0913", "PLR0915", "PLR0911", "PLW0603"]
+ignore = ["E501", "PLR2004", "BLE001", "PLC0415", "RUF006", "PLR0912", "PLR0913", "PLR0915", "PLR0911", "PLW0603", "PLR0917"]
 
