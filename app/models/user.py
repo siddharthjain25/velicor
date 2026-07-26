@@ -1,13 +1,14 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List
 from datetime import datetime
+
+from pydantic import BaseModel, Field
+
 from app.models.service import WebhookConfig
 
 
 class UserBase(BaseModel):
     username: str
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
+    first_name: str | None = None
+    last_name: str | None = None
 
 
 class UserCreate(UserBase):
@@ -15,25 +16,25 @@ class UserCreate(UserBase):
 
 
 class UserUpdate(BaseModel):
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    password: Optional[str] = None
-    old_password: Optional[str] = None
+    first_name: str | None = None
+    last_name: str | None = None
+    password: str | None = None
+    old_password: str | None = None
 
 
 class UserInDB(UserBase):
     hashed_password: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    webhooks: List[WebhookConfig] = []
-    two_factor_secret: Optional[str] = None
+    webhooks: list[WebhookConfig] = []
+    two_factor_secret: str | None = None
     two_factor_enabled: bool = False
-    two_factor_backup_codes: List[str] = []
+    two_factor_backup_codes: list[str] = []
 
 
 class User(UserBase):
     id: str = Field(alias="_id")
     created_at: datetime
-    webhooks: List[WebhookConfig] = []
+    webhooks: list[WebhookConfig] = []
     two_factor_enabled: bool = False
     two_factor_backup_codes_count: int = 0
 
@@ -48,4 +49,4 @@ class Token(BaseModel):
 
 
 class TokenData(BaseModel):
-    username: Optional[str] = None
+    username: str | None = None

@@ -1,30 +1,32 @@
-from fastapi import (
-    APIRouter,
-    WebSocket,
-    WebSocketDisconnect,
-    Header,
-    HTTPException,
-    BackgroundTasks,
-)
-from typing import List, Union, Optional, Dict, Any, Annotated
 import asyncio
-import orjson
 import logging
 import time
 from collections import defaultdict
+from typing import Annotated, Any
+
+import orjson
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Header,
+    HTTPException,
+    WebSocket,
+    WebSocketDisconnect,
+)
+
+from app.core.config import settings
 from app.db.mongo import mongo_manager
 from app.db.redis import redis_manager
-from app.core.config import settings
 from app.services.notifier import trigger_webhooks
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-API_KEY_CACHE: Dict[str, tuple] = {}
+API_KEY_CACHE: dict[str, tuple] = {}
 CACHE_TTL = 300
 
 
-async def get_service_from_key(x_api_key: str) -> Optional[dict]:
+async def get_service_from_key(x_api_key: str) -> dict | None:
     # Try Redis cache first if available
     redis_client = redis_manager.client
     if redis_client:
@@ -79,7 +81,7 @@ async def get_service_from_key(x_api_key: str) -> Optional[dict]:
     return None
 
 
-async def invalidate_service_cache(service_id: Optional[str] = None):
+async def invalidate_service_cache(service_id: str | None = None):
     # Invalidate Redis cache if available
     redis_client = redis_manager.client
     if redis_client:
@@ -104,7 +106,6 @@ async def invalidate_service_cache(service_id: Optional[str] = None):
             logger.error(f"Error invalidating Redis cache: {e}")
 
     # Invalidate local memory cache
-    global API_KEY_CACHE
     if service_id:
         to_delete = [
             k for k, v in API_KEY_CACHE.items() if v[0].get("_id") == service_id
@@ -144,7 +145,7 @@ async def redis_websocket_subscriber():
 class ConnectionManager:
     def __init__(self):
         self.active_connections: dict[str, list[WebSocket]] = defaultdict(list)
-        self.pubsub_task: Optional[asyncio.Task] = None
+        self.pubsub_task: asyncio.Task | None = None
 
     async def connect(self, websocket: WebSocket, service_name: str):
         await websocket.accept()
@@ -174,7 +175,7 @@ class ConnectionManager:
             self.pubsub_task = None
             logger.info("Closed Redis Pub/Sub WebSocket subscriber")
 
-    async def broadcast_local(self, message: Union[dict, str], service_name: str):
+    async def broadcast_local(self, message: dict | str, service_name: str):
         if isinstance(message, dict):
             data = orjson.dumps(message).decode("utf-8")
         else:
@@ -205,7 +206,7 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 ingestion_queue: Any = None
-LAST_RETENTION_RUNS: Dict[str, float] = {}
+LAST_RETENTION_RUNS: dict[str, float] = {}
 
 
 def set_queue(q: Any):
@@ -215,9 +216,9 @@ def set_queue(q: Any):
 
 @router.post("/ingest")
 async def ingest_logs(
-    payload: Union[Dict[str, Any], List[Dict[str, Any]]],
+    payload: dict[str, Any] | list[dict[str, Any]],
     background_tasks: BackgroundTasks,
-    x_api_key: Annotated[Optional[str], Header()] = None,
+    x_api_key: Annotated[str | None, Header()] = None,
 ):
     if not x_api_key:
         raise HTTPException(status_code=401, detail="Missing API Key")
@@ -249,7 +250,7 @@ async def ingest_logs(
         return {"status": "ignored", "processed": 0}
 
     # Trigger webhooks
-    if "webhooks" in service and service["webhooks"]:
+    if service.get("webhooks"):
         from app.models.service import WebhookConfig
 
         webhooks = [WebhookConfig(**w) for w in service["webhooks"]]
@@ -278,13 +279,13 @@ async def ingest_logs(
 
 @router.get("/search")
 async def search_logs(
-    start_ts: Optional[str] = None,
-    end_ts: Optional[str] = None,
-    level: Optional[str] = None,
-    status_code: Optional[int] = None,
-    keyword: Optional[str] = None,
+    start_ts: str | None = None,
+    end_ts: str | None = None,
+    level: str | None = None,
+    status_code: int | None = None,
+    keyword: str | None = None,
     limit: int = 100,
-    x_api_key: Annotated[Optional[str], Header()] = None,
+    x_api_key: Annotated[str | None, Header()] = None,
 ):
     if not x_api_key:
         raise HTTPException(status_code=401, detail="Missing API Key")
@@ -295,7 +296,7 @@ async def search_logs(
 
     from app.db.postgres import pg_manager
 
-    results = await pg_manager.search(
+    return await pg_manager.search(
         service_name=service["name"],
         start_ts=start_ts,
         end_ts=end_ts,
@@ -303,19 +304,17 @@ async def search_logs(
         status_code=status_code,
         keyword=keyword,
         limit=limit,
-        schema=service.get("db_schema", "public"),
     )
-    return results
 
 
 @router.get("/search/archive")
 async def search_archive_logs(
     start_ts: str,
     end_ts: str,
-    level: Optional[str] = None,
-    keyword: Optional[str] = None,
+    level: str | None = None,
+    keyword: str | None = None,
     limit: int = 100,
-    x_api_key: Annotated[Optional[str], Header()] = None,
+    x_api_key: Annotated[str | None, Header()] = None,
 ):
     """Query cold storage S3 archives directly using DuckDB."""
     if not x_api_key:
@@ -327,7 +326,7 @@ async def search_archive_logs(
 
     from app.services.archiver import search_archive
 
-    results = await search_archive(
+    return await search_archive(
         service_name=service["name"],
         start_ts=start_ts,
         end_ts=end_ts,
@@ -335,11 +334,10 @@ async def search_archive_logs(
         keyword=keyword,
         limit=limit,
     )
-    return results
 
 
 @router.websocket("/live")
-async def live_tail(websocket: WebSocket, api_key: Optional[str] = None):
+async def live_tail(websocket: WebSocket, api_key: str | None = None):
     if not api_key:
         await websocket.close(code=1008, reason="Missing api_key")
         return
@@ -359,7 +357,7 @@ async def live_tail(websocket: WebSocket, api_key: Optional[str] = None):
 
 
 @router.api_route("/maintenance/retention", methods=["GET", "POST"])
-async def trigger_retention(authorization: Optional[str] = Header(None)):
+async def trigger_retention(authorization: str | None = Header(None)):
     if settings.CRON_SECRET:
         if not authorization or not authorization.startswith("Bearer "):
             raise HTTPException(status_code=401, detail="Unauthorized")

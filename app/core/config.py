@@ -1,5 +1,4 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Optional
 
 
 class Settings(BaseSettings):
@@ -8,20 +7,20 @@ class Settings(BaseSettings):
     FLUSH_INTERVAL_SECONDS: float = 2.0
 
     # Required settings (Optional at import time to prevent crashes)
-    POSTGRES_URL: Optional[str] = None
-    MONGO_URI: Optional[str] = None
+    POSTGRES_URL: str | None = None
+    MONGO_URI: str | None = None
     MONGO_DB_NAME: str = "velicor"
-    REDIS_URL: Optional[str] = None
+    REDIS_URL: str | None = None
 
     # Security
-    JWT_SECRET_KEY: Optional[str] = None
+    JWT_SECRET_KEY: str | None = None
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 1 week
 
     # S3 Archival
-    S3_BUCKET_NAME: Optional[str] = None
-    S3_ACCESS_KEY_ID: Optional[str] = None
-    S3_SECRET_ACCESS_KEY: Optional[str] = None
+    S3_BUCKET_NAME: str | None = None
+    S3_ACCESS_KEY_ID: str | None = None
+    S3_SECRET_ACCESS_KEY: str | None = None
     S3_REGION_NAME: str = "us-east-1"
 
     SERVERLESS_MODE: bool = False
@@ -34,7 +33,7 @@ class Settings(BaseSettings):
         return self.SERVERLESS_MODE or os.environ.get("VERCEL") == "1"
 
     ALLOW_ORIGINS: list[str] = ["*"]
-    CRON_SECRET: Optional[str] = None
+    CRON_SECRET: str | None = None
 
     model_config = SettingsConfigDict(
         env_prefix="LOG_INGEST_", env_file=".env", extra="ignore"

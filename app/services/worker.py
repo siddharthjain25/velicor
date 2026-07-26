@@ -1,6 +1,7 @@
 import asyncio
 import logging
-from typing import List, Any
+from typing import Any
+
 from app.core.config import settings
 from app.db.postgres import pg_manager
 
@@ -8,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 async def pipeline_worker(log_queue: Any):
-    current_batch: List[Any] = []
+    current_batch: list[Any] = []
     while True:
         try:
             try:
@@ -32,7 +33,7 @@ async def pipeline_worker(log_queue: Any):
             logger.error(f"Error in pipeline worker loop: {e}", exc_info=True)
 
 
-async def _trigger_flush(batch: List[Any]):
+async def _trigger_flush(batch: list[Any]):
     if not batch:
         return
     try:

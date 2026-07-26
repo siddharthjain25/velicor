@@ -1,16 +1,18 @@
 import asyncio
 import logging
-import requests
-import orjson
-from typing import List, Dict, Any
 from datetime import datetime
-from app.models.service import WebhookConfig
+from typing import Any
+
+import orjson
+import requests
+
 from app.core.config import settings
+from app.models.service import WebhookConfig
 
 logger = logging.getLogger(__name__)
 
 
-async def trigger_webhooks(webhooks: List[WebhookConfig], logs: List[Dict[str, Any]]):
+async def trigger_webhooks(webhooks: list[WebhookConfig], logs: list[dict[str, Any]]):
     if not webhooks or not logs:
         return
 
@@ -46,13 +48,13 @@ async def trigger_webhooks(webhooks: List[WebhookConfig], logs: List[Dict[str, A
                 asyncio.create_task(send_webhook_request(webhook.url, matching_logs))
 
 
-async def send_webhook_request(url: str, logs: List[Dict[str, Any]]):
+async def send_webhook_request(url: str, logs: list[dict[str, Any]]):
     try:
         service_name = logs[0].get("service_name", "Unknown")
         count = len(logs)
 
         # Default generic payload
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "event": "log_alert",
             "service": service_name,
             "count": count,
@@ -123,7 +125,7 @@ async def send_webhook_request(url: str, logs: List[Dict[str, Any]]):
 
 
 async def trigger_retention_webhooks(
-    webhooks: List[WebhookConfig],
+    webhooks: list[WebhookConfig],
     service_name: str,
     retention_minutes: int,
     deleted_count: int,
@@ -162,7 +164,7 @@ async def send_retention_webhook_request(
             policy_str = f"{retention_minutes} minutes"
 
         # Default generic payload
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "event": "log_retention",
             "service": service_name,
             "retention_minutes": retention_minutes,
