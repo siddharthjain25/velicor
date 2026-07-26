@@ -1,7 +1,8 @@
-import asyncio
-import sys
-import os
 import argparse
+import asyncio
+import os
+import sys
+
 import bcrypt
 from motor.motor_asyncio import AsyncIOMotorClient
 

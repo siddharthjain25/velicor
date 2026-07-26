@@ -1,14 +1,16 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException
-from app.models.service import WebhookConfig
+
 from app.api.v1.auth import get_current_user
-from app.db.mongo import mongo_manager
 from app.api.v1.endpoints import invalidate_service_cache
-from typing import List, Annotated
+from app.db.mongo import mongo_manager
+from app.models.service import WebhookConfig
 
 router = APIRouter(tags=["Webhooks"])
 
 
-@router.get("/", response_model=List[WebhookConfig])
+@router.get("/", response_model=list[WebhookConfig])
 async def list_webhooks(current_user: Annotated[dict, Depends(get_current_user)]):
     user = await mongo_manager.db.users.find_one({"_id": current_user["_id"]})
     if not user:

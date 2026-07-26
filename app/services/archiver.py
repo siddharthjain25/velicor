@@ -1,11 +1,13 @@
+import json
+import logging
 import os
 import tempfile
-import logging
-import duckdb
-import boto3
-import json
-from typing import List, Dict, Any, Optional
 from datetime import datetime
+from typing import Any
+
+import boto3
+import duckdb
+
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -16,7 +18,7 @@ async def archive_partition(
     p_name: str,
     service_name: str,
     partition_date_str: str,
-    cutoff_time: Optional[datetime] = None,
+    cutoff_time: datetime | None = None,
 ) -> bool:
     if not settings.S3_BUCKET_NAME:
         return False
@@ -114,10 +116,10 @@ async def search_archive(
     service_name: str,
     start_ts: str,
     end_ts: str,
-    level: Optional[str] = None,
-    keyword: Optional[str] = None,
+    level: str | None = None,
+    keyword: str | None = None,
     limit: int = 100,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     if not settings.S3_BUCKET_NAME:
         logger.error("S3_BUCKET_NAME not configured")
         return []

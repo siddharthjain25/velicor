@@ -1,5 +1,5 @@
-from unittest.mock import patch
 from datetime import datetime, timezone
+from unittest.mock import patch
 
 
 def test_health(client):

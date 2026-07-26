@@ -1,9 +1,11 @@
-import asyncpg
 import logging
-import orjson
 import re
-from datetime import datetime, timezone, date, timedelta
-from typing import List, Dict, Any, Optional
+from datetime import date, datetime, timedelta, timezone
+from typing import Any
+
+import asyncpg
+import orjson
+
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -11,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class PostgresManager:
     def __init__(self):
-        self.pool: Optional[asyncpg.Pool] = None
+        self.pool: asyncpg.Pool | None = None
         self.known_tables = set()
         self.known_partitions = set()
 
@@ -76,8 +78,8 @@ class PostgresManager:
             # Query pg_class to check if table exists and if it is partitioned
             class_info = await conn.fetchrow(
                 """
-                SELECT relkind FROM pg_class 
-                JOIN pg_namespace ON pg_class.relnamespace = pg_namespace.oid 
+                SELECT relkind FROM pg_class
+                JOIN pg_namespace ON pg_class.relnamespace = pg_namespace.oid
                 WHERE relname = $1 AND nspname = 'public'
             """,
                 table_name,
@@ -90,7 +92,7 @@ class PostgresManager:
                 if relkind == "p":
                     self.known_tables.add(table_name)
                     return
-                elif relkind == "r":
+                if relkind == "r":
                     logger.info(
                         "Found unpartitioned table. Migrating to partitioned schema..."
                     )
@@ -113,8 +115,8 @@ class PostgresManager:
                     # Copy data from old to new
                     try:
                         migration_query = f"""
-                            INSERT INTO {table_name} (timestamp, level, status_code, message, metadata) 
-                            SELECT timestamp, level, status_code, message, metadata 
+                            INSERT INTO {table_name} (timestamp, level, status_code, message, metadata)
+                            SELECT timestamp, level, status_code, message, metadata
                             FROM {table_name}_old
                         """  # nosec B608
                         await conn.execute(migration_query)
@@ -148,24 +150,24 @@ class PostgresManager:
                 metadata JSONB,
                 PRIMARY KEY (id, timestamp)
             ) PARTITION BY RANGE (timestamp);
-            
+
             CREATE INDEX IF NOT EXISTS idx_{table_name}_ts ON {table_name} (timestamp);
             CREATE INDEX IF NOT EXISTS idx_{table_name}_status ON {table_name} (status_code);
             CREATE INDEX IF NOT EXISTS idx_{table_name}_metadata ON {table_name} USING GIN (metadata);
             CREATE INDEX IF NOT EXISTS idx_{table_name}_message_fts ON {table_name} USING GIN (to_tsvector('english', message));
             ALTER TABLE {table_name} ENABLE ROW LEVEL SECURITY;
-            
+
             -- Create default partition for safety/fallback
             CREATE TABLE IF NOT EXISTS {table_name}_default PARTITION OF {table_name} DEFAULT;
         """)
 
-    async def insert_batch(self, batch: List[Dict[str, Any]]):
+    async def insert_batch(self, batch: list[dict[str, Any]]):
         if not settings.POSTGRES_URL:
             return
 
         conn = await self.get_connection()
         try:
-            groups: Dict[str, List[Any]] = {}
+            groups: dict[str, list[Any]] = {}
             for data in batch:
                 service = data.get("service_name", "unknown")
                 table = self._get_table_name(service)
@@ -236,11 +238,11 @@ class PostgresManager:
     async def search(
         self,
         service_name: str,
-        start_ts: Optional[str] = None,
-        end_ts: Optional[str] = None,
-        level: Optional[str] = None,
-        status_code: Optional[int] = None,
-        keyword: Optional[str] = None,
+        start_ts: str | None = None,
+        end_ts: str | None = None,
+        level: str | None = None,
+        status_code: int | None = None,
+        keyword: str | None = None,
         limit: int = 100,
         schema: str = "public",
     ):
@@ -254,7 +256,7 @@ class PostgresManager:
             # await self.ensure_table(table_name, conn) # Removed ensure_table to avoid creating tables in wrong schema during search
 
             query = f"SELECT timestamp, level, status_code, message, metadata FROM {full_table} WHERE TRUE"  # nosec B608
-            args: List[Any] = []
+            args: list[Any] = []
             arg_idx = 1
 
             if start_ts:
@@ -331,8 +333,8 @@ class PostgresManager:
         next_date = (day + timedelta(days=1)).strftime("%Y-%m-%d")
 
         await conn.execute(f"""
-            CREATE TABLE IF NOT EXISTS {partition_name} 
-            PARTITION OF {parent_table} 
+            CREATE TABLE IF NOT EXISTS {partition_name}
+            PARTITION OF {parent_table}
             FOR VALUES FROM ('{start_date} 00:00:00+00') TO ('{next_date} 00:00:00+00');
         """)
         self.known_partitions.add(cache_key)
@@ -349,7 +351,7 @@ class PostgresManager:
             exists = await conn.fetchval(
                 """
                 SELECT EXISTS (
-                    SELECT FROM information_schema.tables 
+                    SELECT FROM information_schema.tables
                     WHERE table_name = $1
                 )
             """,
@@ -427,7 +429,7 @@ class PostgresManager:
 
                         if archived:
                             delete_query = f"""
-                                DELETE FROM {p_name} 
+                                DELETE FROM {p_name}
                                 WHERE timestamp < $1
                             """  # nosec B608
                             result = await conn.execute(delete_query, cutoff_time)
@@ -443,7 +445,7 @@ class PostgresManager:
                 elif p_name == f"{table_name}_default":
                     # Clean up old logs from the default partition (fallback safety net)
                     delete_query = f"""
-                        DELETE FROM {p_name} 
+                        DELETE FROM {p_name}
                         WHERE timestamp < $1
                     """  # nosec B608
                     result = await conn.execute(delete_query, cutoff_time)
@@ -467,8 +469,8 @@ class PostgresManager:
             await self.ensure_table(table_name, conn)
 
             counts_query = f"""
-                SELECT level, COUNT(*) as count 
-                FROM {table_name} 
+                SELECT level, COUNT(*) as count
+                FROM {table_name}
                 WHERE timestamp >= NOW() - INTERVAL '{interval_hours} hours'
                 GROUP BY level
             """  # nosec B608

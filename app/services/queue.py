@@ -1,7 +1,9 @@
 import asyncio
 import logging
-import orjson
 from typing import Any
+
+import orjson
+
 from app.db.redis import redis_manager
 
 logger = logging.getLogger(__name__)

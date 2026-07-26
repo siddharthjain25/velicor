@@ -1,13 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Header
-from app.models.service import ServiceCreate, ServiceInDB, Service, ServiceUpdate
-from app.api.v1.auth import get_current_user
-from app.db.mongo import mongo_manager
-from app.core.config import settings
 import secrets
-from typing import List, Annotated, Optional
+from typing import Annotated
 
-from app.db.postgres import pg_manager
+from fastapi import APIRouter, Depends, Header, HTTPException, status
+
+from app.api.v1.auth import get_current_user
 from app.api.v1.endpoints import invalidate_service_cache
+from app.core.config import settings
+from app.db.mongo import mongo_manager
+from app.db.postgres import pg_manager
+from app.models.service import Service, ServiceCreate, ServiceInDB, ServiceUpdate
 
 router = APIRouter(tags=["Services"])
 
@@ -16,8 +17,8 @@ router = APIRouter(tags=["Services"])
 async def delete_service(
     service_id: str,
     current_user: Annotated[dict, Depends(get_current_user)],
-    x_2fa_code: Annotated[Optional[str], Header(alias="X-2FA-Code")] = None,
-    code: Optional[str] = None,
+    x_2fa_code: Annotated[str | None, Header(alias="X-2FA-Code")] = None,
+    code: str | None = None,
 ):
     from bson import ObjectId
 
@@ -35,8 +36,9 @@ async def delete_service(
                 detail="Two-factor authentication code is required to delete this service. Please provide it in the 'X-2FA-Code' header.",
             )
 
-        import pyotp
         import hashlib
+
+        import pyotp
 
         secret = current_user.get("two_factor_secret")
         if not secret:
@@ -82,7 +84,6 @@ async def delete_service(
     # 2. Drop Postgres Table
     await pg_manager.delete_table(service["name"])
 
-    return None
 
 
 @router.post("/{service_id}/reset-key", response_model=Service)
@@ -143,7 +144,7 @@ async def create_service(
     return res
 
 
-@router.get("/", response_model=List[Service])
+@router.get("/", response_model=list[Service])
 async def list_services(current_user: Annotated[dict, Depends(get_current_user)]):
     services = await mongo_manager.db.services.find(
         {"user_id": str(current_user["_id"])}
@@ -303,8 +304,8 @@ async def update_webhook(
 
 @router.api_route("/purge-all", methods=["GET", "POST"], status_code=status.HTTP_200_OK)
 async def trigger_global_purge(
-    authorization: Annotated[Optional[str], Header()] = None,
-    x_cron_secret: Annotated[Optional[str], Header()] = None,
+    authorization: Annotated[str | None, Header()] = None,
+    x_cron_secret: Annotated[str | None, Header()] = None,
 ):
     # 1. Check for Cron Secret (System-wide purge)
     cron_secret_matched = False

@@ -1,23 +1,24 @@
-from pydantic import BaseModel, Field, model_validator
-from typing import Optional, List, Any
 from datetime import datetime
+from typing import Any
+
+from pydantic import BaseModel, Field, model_validator
 
 
 class WebhookConfig(BaseModel):
     id: str = Field(default_factory=lambda: datetime.now().strftime("%Y%m%d%H%M%S%f"))
     url: str
-    levels: List[str] = ["ERROR", "FATAL"]
-    keywords: Optional[List[str]] = None
+    levels: list[str] = ["ERROR", "FATAL"]
+    keywords: list[str] | None = None
     enabled: bool = True
-    services: Optional[List[str]] = None
+    services: list[str] | None = None
 
 
 class ServiceBase(BaseModel):
     name: str
     retention_days: int = 30
     retention_minutes: int = 43200
-    webhooks: List[WebhookConfig] = []
-    custom_severities: List[str] = []
+    webhooks: list[WebhookConfig] = []
+    custom_severities: list[str] = []
 
     @model_validator(mode="before")
     @classmethod
@@ -37,10 +38,10 @@ class ServiceCreate(ServiceBase):
 
 
 class ServiceUpdate(BaseModel):
-    retention_days: Optional[int] = None
-    retention_minutes: Optional[int] = None
-    webhooks: Optional[List[WebhookConfig]] = None
-    custom_severities: Optional[List[str]] = None
+    retention_days: int | None = None
+    retention_minutes: int | None = None
+    webhooks: list[WebhookConfig] | None = None
+    custom_severities: list[str] | None = None
 
     @model_validator(mode="before")
     @classmethod

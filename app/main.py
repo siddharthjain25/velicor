@@ -2,22 +2,24 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 from typing import Any
+
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
-from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.core.config import settings
-from app.services.worker import pipeline_worker, flush_remaining
-from app.api.v1.endpoints import router as v1_router, set_queue
 from app.api.v1.auth import router as auth_router
+from app.api.v1.endpoints import router as v1_router
+from app.api.v1.endpoints import set_queue
 from app.api.v1.services import router as services_router
 from app.api.v1.webhooks import router as webhooks_router
-from app.db.postgres import pg_manager
+from app.core.config import settings
 from app.db.mongo import mongo_manager
+from app.db.postgres import pg_manager
 from app.db.redis import redis_manager
 from app.services.queue import RedisPersistentQueue
+from app.services.worker import flush_remaining, pipeline_worker
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
