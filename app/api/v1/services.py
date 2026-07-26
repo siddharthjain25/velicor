@@ -85,7 +85,6 @@ async def delete_service(
     await pg_manager.delete_table(service["name"])
 
 
-
 @router.post("/{service_id}/reset-key", response_model=Service)
 async def reset_service_key(
     service_id: str, current_user: Annotated[dict, Depends(get_current_user)]

@@ -159,7 +159,6 @@ async def delete_user_me(current_user: Annotated[dict, Depends(get_current_user)
     await mongo_manager.db.users.delete_one({"_id": current_user["_id"]})
 
 
-
 class Verify2FARequest(BaseModel):
     code: str
 
