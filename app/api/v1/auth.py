@@ -1,14 +1,15 @@
 import logging
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from jose import JWTError, jwt
 from pydantic import BaseModel
 
-from app.models.user import UserCreate, UserInDB, Token, User, UserUpdate
-from app.core.security import get_password_hash, verify_password, create_access_token
-from app.db.mongo import mongo_manager
-from jose import jwt, JWTError
 from app.core.config import settings
-from typing import Annotated
+from app.core.security import create_access_token, get_password_hash, verify_password
+from app.db.mongo import mongo_manager
+from app.models.user import Token, User, UserCreate, UserInDB, UserUpdate
 
 logger = logging.getLogger(__name__)
 
@@ -198,9 +199,10 @@ async def setup_2fa(current_user: Annotated[dict, Depends(get_current_user)]):
 async def enable_2fa(
     data: Verify2FARequest, current_user: Annotated[dict, Depends(get_current_user)]
 ):
-    import pyotp
-    import secrets
     import hashlib
+    import secrets
+
+    import pyotp
 
     secret = current_user.get("two_factor_secret")
     if not secret:
@@ -235,8 +237,9 @@ async def enable_2fa(
 async def disable_2fa(
     data: Verify2FARequest, current_user: Annotated[dict, Depends(get_current_user)]
 ):
-    import pyotp
     import hashlib
+
+    import pyotp
 
     if not current_user.get("two_factor_enabled"):
         raise HTTPException(status_code=400, detail="2FA is not currently enabled.")
@@ -280,9 +283,10 @@ async def disable_2fa(
 async def generate_new_backup_codes(
     data: Verify2FARequest, current_user: Annotated[dict, Depends(get_current_user)]
 ):
-    import pyotp
-    import secrets
     import hashlib
+    import secrets
+
+    import pyotp
 
     if not current_user.get("two_factor_enabled"):
         raise HTTPException(status_code=400, detail="2FA is not currently enabled.")
@@ -316,8 +320,9 @@ async def generate_new_backup_codes(
 
 @router.post("/token/verify-2fa", response_model=Token)
 async def verify_2fa_login(data: TokenVerify2FARequest):
-    import pyotp
     import hashlib
+
+    import pyotp
 
     try:
         payload = jwt.decode(
@@ -376,8 +381,10 @@ async def verify_2fa_login(data: TokenVerify2FARequest):
 
 @router.post("/reset-password")
 async def reset_password_with_2fa(data: ResetPasswordRequest):
-    import pyotp
     import hashlib
+
+    import pyotp
+
     from app.core.security import get_password_hash
 
     user = await mongo_manager.db.users.find_one({"username": data.username})
