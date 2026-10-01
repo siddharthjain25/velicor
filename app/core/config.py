@@ -10,7 +10,6 @@ class Settings(BaseSettings):
     POSTGRES_URL: str | None = None
     MONGO_URI: str | None = None
     MONGO_DB_NAME: str = "velicor"
-    REDIS_URL: str | None = None
 
     # Security
     JWT_SECRET_KEY: str | None = None

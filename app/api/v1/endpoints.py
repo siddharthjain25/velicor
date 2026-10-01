@@ -16,7 +16,6 @@ from fastapi import (
 
 from app.core.config import settings
 from app.db.mongo import mongo_manager
-from app.db.redis import redis_manager
 from app.services.notifier import trigger_webhooks
 
 logger = logging.getLogger(__name__)
@@ -27,17 +26,7 @@ CACHE_TTL = 300
 
 
 async def get_service_from_key(x_api_key: str) -> dict | None:
-    # Try Redis cache first if available
-    redis_client = redis_manager.client
-    if redis_client:
-        try:
-            cached_data = await redis_client.get(f"velicor:apikey:{x_api_key}")
-            if cached_data:
-                return orjson.loads(cached_data)
-        except Exception as e:
-            logger.error(f"Error reading from Redis key cache: {e}")
-
-    # Fall back to local memory cache
+    # Check local memory cache
     now = time.time()
     if x_api_key in API_KEY_CACHE:
         service, expiry = API_KEY_CACHE[x_api_key]
@@ -61,20 +50,6 @@ async def get_service_from_key(x_api_key: str) -> dict | None:
         user_webhooks = user.get("webhooks", []) if user else []
         service["webhooks"] = service_webhooks + user_webhooks
 
-        # Store in Redis if available
-        if redis_client:
-            try:
-                service_id = service["_id"]
-                serialized = orjson.dumps(service).decode("utf-8")
-                await redis_client.set(
-                    f"velicor:apikey:{x_api_key}", serialized, ex=CACHE_TTL
-                )
-                await redis_client.set(
-                    f"velicor:service_to_key:{service_id}", x_api_key, ex=CACHE_TTL
-                )
-            except Exception as e:
-                logger.error(f"Error writing to Redis key cache: {e}")
-
         # Store in local memory cache
         API_KEY_CACHE[x_api_key] = (service, now + CACHE_TTL)
         return service
@@ -82,29 +57,6 @@ async def get_service_from_key(x_api_key: str) -> dict | None:
 
 
 async def invalidate_service_cache(service_id: str | None = None):
-    # Invalidate Redis cache if available
-    redis_client = redis_manager.client
-    if redis_client:
-        try:
-            if service_id:
-                x_api_key_val = await redis_client.get(
-                    f"velicor:service_to_key:{service_id}"
-                )
-                if x_api_key_val:
-                    x_api_key = (
-                        x_api_key_val.decode("utf-8")
-                        if isinstance(x_api_key_val, bytes)
-                        else x_api_key_val
-                    )
-                    await redis_client.delete(f"velicor:apikey:{x_api_key}")
-                    await redis_client.delete(f"velicor:service_to_key:{service_id}")
-            else:
-                # Clear all cached keys
-                async for key in redis_client.scan_iter("velicor:*"):
-                    await redis_client.delete(key)
-        except Exception as e:
-            logger.error(f"Error invalidating Redis cache: {e}")
-
     # Invalidate local memory cache
     if service_id:
         to_delete = [
@@ -116,45 +68,13 @@ async def invalidate_service_cache(service_id: str | None = None):
         API_KEY_CACHE.clear()
 
 
-async def redis_websocket_subscriber():
-    while True:
-        try:
-            redis_client = redis_manager.client
-            if not redis_client:
-                await asyncio.sleep(5)
-                continue
-
-            pubsub = redis_client.pubsub()
-            await pubsub.psubscribe("velicor:pubsub:*")
-            logger.info("Subscribed to Redis Pub/Sub pattern: velicor:pubsub:*")
-
-            async for message in pubsub.listen():
-                if message["type"] == "pmessage":
-                    channel = message["channel"]
-                    service_name = channel.split("velicor:pubsub:")[-1]
-                    data = message["data"]
-                    await manager.broadcast_local(data, service_name)
-        except asyncio.CancelledError:
-            logger.info("Redis Pub/Sub subscriber cancelled")
-            break
-        except Exception as e:
-            logger.error(f"Error in Redis Pub/Sub WebSocket subscriber: {e}")
-            await asyncio.sleep(5)
-
-
 class ConnectionManager:
     def __init__(self):
         self.active_connections: dict[str, list[WebSocket]] = defaultdict(list)
-        self.pubsub_task: asyncio.Task | None = None
 
     async def connect(self, websocket: WebSocket, service_name: str):
         await websocket.accept()
         self.active_connections[service_name].append(websocket)
-
-        # Dynamically start Redis Pub/Sub subscriber if not running
-        if redis_manager.client and not self.pubsub_task:
-            self.pubsub_task = asyncio.create_task(redis_websocket_subscriber())
-            logger.info("Dynamically started Redis Pub/Sub WebSocket subscriber")
 
     def disconnect(self, websocket: WebSocket, service_name: str):
         if service_name in self.active_connections:
@@ -163,19 +83,10 @@ class ConnectionManager:
             if not self.active_connections[service_name]:
                 del self.active_connections[service_name]
 
-        # Dynamically stop Redis Pub/Sub subscriber if no connections remain
-        if not self.active_connections and self.pubsub_task:
-            self.pubsub_task.cancel()
-            self.pubsub_task = None
-            logger.info("Dynamically stopped Redis Pub/Sub WebSocket subscriber")
-
     async def close(self):
-        if self.pubsub_task:
-            self.pubsub_task.cancel()
-            self.pubsub_task = None
-            logger.info("Closed Redis Pub/Sub WebSocket subscriber")
+        pass
 
-    async def broadcast_local(self, message: dict | str, service_name: str):
+    async def broadcast(self, message: dict | str, service_name: str):
         if isinstance(message, dict):
             data = orjson.dumps(message).decode("utf-8")
         else:
@@ -189,18 +100,6 @@ class ConnectionManager:
                 disconnected.append(connection)
         for conn in disconnected:
             self.disconnect(conn, service_name)
-
-    async def broadcast(self, message: dict, service_name: str):
-        redis_client = redis_manager.client
-        if redis_client:
-            try:
-                data = orjson.dumps(message).decode("utf-8")
-                await redis_client.publish(f"velicor:pubsub:{service_name}", data)
-            except Exception as e:
-                logger.error(f"Failed to publish to Redis Pub/Sub: {e}")
-                await self.broadcast_local(message, service_name)
-        else:
-            await self.broadcast_local(message, service_name)
 
 
 manager = ConnectionManager()

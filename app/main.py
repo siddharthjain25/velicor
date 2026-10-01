@@ -17,8 +17,7 @@ from app.api.v1.webhooks import router as webhooks_router
 from app.core.config import settings
 from app.db.mongo import mongo_manager
 from app.db.postgres import pg_manager
-from app.db.redis import redis_manager
-from app.services.queue import RedisPersistentQueue
+from app.services.queue import PersistentQueue
 from app.services.worker import flush_remaining, pipeline_worker
 
 logging.basicConfig(
@@ -28,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 _memory_queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=settings.MAX_QUEUE_SIZE)
-queue = RedisPersistentQueue(_memory_queue)
+queue = PersistentQueue(_memory_queue)
 
 
 async def retention_worker():
@@ -71,7 +70,6 @@ async def retention_worker():
 async def lifespan(app: FastAPI):
     await pg_manager.connect()
     await mongo_manager.connect()
-    await redis_manager.connect()
     set_queue(queue)
 
     worker_task = None
@@ -126,10 +124,8 @@ async def lifespan(app: FastAPI):
         if not settings.is_serverless:
             await pg_manager.disconnect()
             await mongo_manager.disconnect()
-            await redis_manager.disconnect()
             logger.info("Application stopped")
         else:
-            await redis_manager.disconnect()
             logger.info("Serverless: Skipping disconnect to allow connection reuse")
 
 

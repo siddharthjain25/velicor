@@ -19,8 +19,6 @@ def mock_db_managers():
         patch("app.db.postgres.pg_manager.search", new_callable=AsyncMock),
         patch("app.db.mongo.mongo_manager.connect", new_callable=AsyncMock),
         patch("app.db.mongo.mongo_manager.disconnect", new_callable=AsyncMock),
-        patch("app.db.redis.redis_manager.connect", new_callable=AsyncMock),
-        patch("app.db.redis.redis_manager.disconnect", new_callable=AsyncMock),
     ):
         yield
 
