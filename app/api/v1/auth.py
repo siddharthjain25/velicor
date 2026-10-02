@@ -136,21 +136,10 @@ async def update_user_me(
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user_me(current_user: Annotated[dict, Depends(get_current_user)]):
-    from app.db.postgres import pg_manager
-
     user_id = str(current_user["_id"])
 
     # 1. Find all services for this user
     services = await mongo_manager.db.services.find({"user_id": user_id}).to_list(None)
-
-    # 2. Delete each service's Postgres table
-    for service in services:
-        try:
-            await pg_manager.delete_table(service["name"])
-        except Exception as e:
-            logger.warning(
-                f"Failed to delete table for service {service.get('name')}: {e}"
-            )
 
     # 3. Delete all services from MongoDB
     await mongo_manager.db.services.delete_many({"user_id": user_id})

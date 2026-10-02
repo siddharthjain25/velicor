@@ -13,10 +13,8 @@ def mock_db_managers():
     settings.SERVERLESS_MODE = True
 
     with (
-        patch("app.db.postgres.pg_manager.connect", new_callable=AsyncMock),
-        patch("app.db.postgres.pg_manager.disconnect", new_callable=AsyncMock),
-        patch("app.db.postgres.pg_manager.insert_batch", new_callable=AsyncMock),
-        patch("app.db.postgres.pg_manager.search", new_callable=AsyncMock),
+        patch("app.services.archiver.upload_batch_to_s3", new_callable=AsyncMock),
+        patch("app.services.archiver.search_s3_logs", new_callable=AsyncMock),
         patch("app.db.mongo.mongo_manager.connect", new_callable=AsyncMock),
         patch("app.db.mongo.mongo_manager.disconnect", new_callable=AsyncMock),
     ):

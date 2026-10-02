@@ -7,7 +7,6 @@ class Settings(BaseSettings):
     FLUSH_INTERVAL_SECONDS: float = 2.0
 
     # Required settings (Optional at import time to prevent crashes)
-    POSTGRES_URL: str | None = None
     MONGO_URI: str | None = None
     MONGO_DB_NAME: str = "velicor"
 
