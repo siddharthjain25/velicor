@@ -59,7 +59,7 @@ def test_single_ingest_success(mock_get_service, client):
 
 
 @patch("app.api.v1.endpoints.get_service_from_key")
-@patch("app.db.postgres.pg_manager.search")
+@patch("app.services.archiver.search_s3_logs")
 def test_search_logs(mock_search, mock_get_service, client):
     """Verifies that log search works correctly and returns mocked search results."""
     mock_get_service.return_value = {

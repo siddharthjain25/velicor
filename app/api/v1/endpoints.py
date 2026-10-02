@@ -160,10 +160,10 @@ async def ingest_logs(
 
     if settings.is_serverless:
         # Synchronous flush for Vercel
-        from app.db.postgres import pg_manager
+        from app.services.archiver import upload_batch_to_s3
 
         try:
-            await pg_manager.insert_batch(valid_logs)
+            await upload_batch_to_s3(valid_logs)
             return {"status": "created", "processed": len(valid_logs)}
         except Exception as e:
             logger.error(f"Serverless flush failed: {e}")
@@ -193,9 +193,9 @@ async def search_logs(
     if not service:
         raise HTTPException(status_code=403, detail="Invalid API Key")
 
-    from app.db.postgres import pg_manager
+    from app.services.archiver import search_s3_logs
 
-    return await pg_manager.search(
+    return await search_s3_logs(
         service_name=service["name"],
         start_ts=start_ts,
         end_ts=end_ts,
@@ -208,14 +208,14 @@ async def search_logs(
 
 @router.get("/search/archive")
 async def search_archive_logs(
-    start_ts: str,
-    end_ts: str,
+    start_ts: str | None = None,
+    end_ts: str | None = None,
     level: str | None = None,
     keyword: str | None = None,
     limit: int = 100,
     x_api_key: Annotated[str | None, Header()] = None,
 ):
-    """Query cold storage S3 archives directly using DuckDB."""
+    """Query S3 logs directly using DuckDB."""
     if not x_api_key:
         raise HTTPException(status_code=401, detail="Missing API Key")
 
@@ -223,9 +223,9 @@ async def search_archive_logs(
     if not service:
         raise HTTPException(status_code=403, detail="Invalid API Key")
 
-    from app.services.archiver import search_archive
+    from app.services.archiver import search_s3_logs
 
-    return await search_archive(
+    return await search_s3_logs(
         service_name=service["name"],
         start_ts=start_ts,
         end_ts=end_ts,
@@ -268,8 +268,8 @@ async def trigger_retention(authorization: str | None = Header(None)):
     if db is None:
         raise HTTPException(status_code=500, detail="Database not connected")
 
-    from app.db.postgres import pg_manager
     from app.models.service import WebhookConfig
+    from app.services.archiver import purge_s3_logs
     from app.services.notifier import trigger_retention_webhooks
 
     services_cursor = db.services.find({})
@@ -282,7 +282,7 @@ async def trigger_retention(authorization: str | None = Header(None)):
             retention_minutes = service.get("retention_days", 30) * 1440
 
         try:
-            deleted_count = await pg_manager.purge_old_logs(
+            deleted_count = await purge_s3_logs(
                 service_name, retention_minutes
             )
             results[service_name] = deleted_count

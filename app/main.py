@@ -16,7 +16,7 @@ from app.api.v1.services import router as services_router
 from app.api.v1.webhooks import router as webhooks_router
 from app.core.config import settings
 from app.db.mongo import mongo_manager
-from app.db.postgres import pg_manager
+from app.services.archiver import purge_s3_logs
 from app.services.queue import PersistentQueue
 from app.services.worker import flush_remaining, pipeline_worker
 
@@ -42,7 +42,7 @@ async def retention_worker():
                 if retention_minutes is None:
                     retention_minutes = service.get("retention_days", 30) * 1440
 
-                deleted_count = await pg_manager.purge_old_logs(
+                deleted_count = await purge_s3_logs(
                     service["name"], retention_minutes
                 )
 
@@ -68,7 +68,6 @@ async def retention_worker():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await pg_manager.connect()
     await mongo_manager.connect()
     set_queue(queue)
 
@@ -122,7 +121,6 @@ async def lifespan(app: FastAPI):
         await flush_remaining(queue)
     finally:
         if not settings.is_serverless:
-            await pg_manager.disconnect()
             await mongo_manager.disconnect()
             logger.info("Application stopped")
         else:

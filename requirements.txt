@@ -7,7 +7,6 @@ aiofiles
 orjson
 python-multipart
 requests
-asyncpg
 python-dotenv
 motor
 python-jose[cryptography]

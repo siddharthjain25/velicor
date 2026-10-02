@@ -3,7 +3,7 @@ import logging
 from typing import Any
 
 from app.core.config import settings
-from app.db.postgres import pg_manager
+from app.services.archiver import upload_batch_to_s3
 
 logger = logging.getLogger(__name__)
 
@@ -37,10 +37,10 @@ async def _trigger_flush(batch: list[Any]):
     if not batch:
         return
     try:
-        await pg_manager.insert_batch(batch)
-        logger.info(f"Successfully flushed {len(batch)} logs to Postgres")
+        await upload_batch_to_s3(batch)
+        logger.info(f"Successfully flushed {len(batch)} logs to S3")
     except Exception as e:
-        logger.critical(f"Pipeline flush to Postgres failed: {e}", exc_info=True)
+        logger.critical(f"Pipeline flush to S3 failed: {e}", exc_info=True)
 
 
 async def flush_remaining(log_queue: Any):

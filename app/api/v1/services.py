@@ -7,8 +7,8 @@ from app.api.v1.auth import get_current_user
 from app.api.v1.endpoints import invalidate_service_cache
 from app.core.config import settings
 from app.db.mongo import mongo_manager
-from app.db.postgres import pg_manager
 from app.models.service import Service, ServiceCreate, ServiceInDB, ServiceUpdate
+from app.services.archiver import get_s3_stats, purge_s3_logs
 
 router = APIRouter(tags=["Services"])
 
@@ -78,11 +78,8 @@ async def delete_service(
     # Invalidate cache before deletion
     await invalidate_service_cache(service_id)
 
-    # 1. Delete from MongoDB
+    # Delete from MongoDB
     await mongo_manager.db.services.delete_one({"_id": obj_id})
-
-    # 2. Drop Postgres Table
-    await pg_manager.delete_table(service["name"])
 
 
 @router.post("/{service_id}/reset-key", response_model=Service)
@@ -207,7 +204,7 @@ async def get_service_stats(
     if not service:
         raise HTTPException(status_code=404, detail="Service not found")
 
-    return await pg_manager.get_stats(service["name"], interval_hours)
+    return await get_s3_stats(service["name"], interval_hours)
 
 
 @router.post("/{service_id}/webhooks")
@@ -326,7 +323,7 @@ async def trigger_global_purge(
             retention_minutes = service.get("retention_minutes")
             if retention_minutes is None:
                 retention_minutes = service.get("retention_days", 30) * 1440
-            deleted_count = await pg_manager.purge_old_logs(
+            deleted_count = await purge_s3_logs(
                 service["name"], retention_minutes
             )
 
@@ -363,7 +360,7 @@ async def trigger_global_purge(
         retention_minutes = service.get("retention_minutes")
         if retention_minutes is None:
             retention_minutes = service.get("retention_days", 30) * 1440
-        deleted_count = await pg_manager.purge_old_logs(
+        deleted_count = await purge_s3_logs(
             service["name"], retention_minutes
         )
 
